@@ -10,6 +10,8 @@
     <style>
         * { box-sizing: border-box; }
 
+        [hidden] { display: none !important; }
+
         body {
             margin: 0;
             padding: 20px;
@@ -20,55 +22,14 @@
 
         .container { max-width: 1100px; margin: 0 auto; }
 
-        .header {
-            background: #ffffff;
-            padding: 20px 25px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-
-        .header h1 { margin: 0 0 8px 0; font-size: 22px; color: #1f2937; }
-        .header p { margin: 0; color: #6b7280; font-size: 14px; }
-
-        #refreshButton {
-            margin-top: 12px;
-            background: #2563eb;
-            color: #ffffff;
-            border: none;
-            padding: 9px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        #refreshButton:disabled { background: #9ca3af; cursor: not-allowed; }
-
-        .summary-cards {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .card {
-            background: #ffffff;
-            border-radius: 10px;
-            padding: 18px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            text-align: center;
-        }
-
-        .card-title { font-size: 13px; color: #6b7280; margin-bottom: 6px; }
-        .card-value { font-size: 26px; font-weight: bold; color: #111827; }
-
         .report-section {
             background: #ffffff;
             border-radius: 10px;
             padding: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
+
+        .report-section + .report-section { margin-top: 20px; }
 
         .report-header {
             display: flex;
@@ -81,6 +42,13 @@
 
         .report-header h2 { margin: 0; font-size: 18px; color: #1f2937; }
 
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
         #ownerFilter {
             padding: 6px 10px;
             border-radius: 6px;
@@ -90,7 +58,36 @@
             min-width: 180px;
         }
 
+        #refreshButton {
+            background: #2563eb;
+            color: #ffffff;
+            border: none;
+            padding: 7px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        #refreshButton:disabled { background: #9ca3af; cursor: not-allowed; }
+
+        .secondary-button {
+            background: #ffffff;
+            color: #1f2937;
+            border: 1px solid #d1d5db;
+            padding: 7px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .secondary-button:hover { background: #f3f4f6; }
+        .secondary-button:disabled { color: #9ca3af; cursor: not-allowed; }
+
         .last-updated { font-size: 12px; color: #6b7280; }
+
+        .table-scroll { overflow-x: auto; }
 
         table {
             border-collapse: collapse;
@@ -110,9 +107,57 @@
         }
 
         td.bucket-name { text-align: left; font-weight: 600; }
+        td.zero { color: #9ca3af; }
 
         tr.grand-total { background: #d9eaf7; font-weight: 700; }
         tbody tr:nth-child(even) { background: #f7f9fb; }
+
+        .count-link {
+            background: none;
+            border: none;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font: inherit;
+            font-weight: 700;
+            color: #1d4ed8;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            cursor: pointer;
+        }
+
+        .count-link:hover { background: #dbeafe; }
+        .count-link.active { background: #1d4ed8; color: #ffffff; text-decoration: none; }
+
+        .count-link:focus-visible,
+        .account-link:focus-visible,
+        .secondary-button:focus-visible,
+        #refreshButton:focus-visible {
+            outline: 2px solid #1d4ed8;
+            outline-offset: 2px;
+        }
+
+        .drill-meta {
+            font-size: 13px;
+            color: #4b5563;
+            margin: -6px 0 12px 0;
+        }
+
+        #drillBody td { text-align: left; }
+        #drillBody td.row-number { text-align: center; color: #6b7280; width: 56px; }
+
+        .account-link {
+            color: #1d4ed8;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .account-link:hover { text-decoration: underline; }
+
+        .load-more-row {
+            display: flex;
+            justify-content: center;
+            margin-top: 14px;
+        }
 
         .loading { padding: 40px; text-align: center; color: #6b7280; }
 
@@ -123,10 +168,17 @@
             border-radius: 6px;
             color: #991b1b;
             font-size: 14px;
+            margin-top: 12px;
         }
 
-        @media (max-width: 700px) {
-            .summary-cards { grid-template-columns: 1fr; }
+        .note {
+            padding: 10px 14px;
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            border-radius: 6px;
+            color: #92400e;
+            font-size: 13px;
+            margin-bottom: 12px;
         }
     </style>
 </head>
@@ -135,35 +187,15 @@
 
 <div class="container">
 
-    <div class="header">
-        <h1>Bucket-wise Activity Dashboard</h1>
-        <p>Owner-filterable view of account activity by Bucket</p>
-        <button id="refreshButton" onclick="loadReport()">Refresh Report</button>
-    </div>
-
-    <div class="summary-cards">
-        <div class="card">
-            <div class="card-title">Total Accounts</div>
-            <div class="card-value" id="totalAccounts">-</div>
-        </div>
-        <div class="card">
-            <div class="card-title">Accounts With Calls</div>
-            <div class="card-value" id="accountsWithCalls">-</div>
-        </div>
-        <div class="card">
-            <div class="card-title">Accounts Without Calls</div>
-            <div class="card-value" id="accountsWithoutCalls">-</div>
-        </div>
-    </div>
-
     <div class="report-section">
 
         <div class="report-header">
             <h2>Bucket Activity Summary</h2>
-            <div style="display:flex;align-items:center;gap:12px;">
-                <select id="ownerFilter" onchange="renderTable()">
+            <div class="controls">
+                <select id="ownerFilter" onchange="onOwnerChange()" aria-label="Account owner">
                     <option value="All Owners">All Owners</option>
                 </select>
+                <button id="refreshButton" type="button" onclick="loadReport()">Refresh</button>
                 <div class="last-updated" id="lastUpdated">Last Updated: -</div>
             </div>
         </div>
@@ -174,18 +206,97 @@
 
     </div>
 
+    <div class="report-section" id="drillSection" hidden>
+
+        <div class="report-header">
+            <h2 id="drillTitle">Accounts</h2>
+            <button type="button" class="secondary-button" onclick="closeDrill()">Close list</button>
+        </div>
+
+        <div class="drill-meta" id="drillMeta"></div>
+        <div id="drillBody"></div>
+
+    </div>
+
 </div>
 
 <script>
 
+// ============================================================
+// CONFIGURATION
+// ============================================================
+
+var READER_FUNCTION = "bucket_activity_reader";
+
+var ALL_OWNERS_KEY = "All Owners";
+var ALL_BUCKETS_KEY = "__ALL_BUCKETS__";      // Grand Total row
+var TOTAL_ACTIVITY_KEY = "Total";              // Total column
+var ACTIVITY_COLUMNS = ["Total", "0-30 Days", "31-60 Days", "61-90 Days", "Not Touched"];
+
+var DRILL_PAGE_SIZE = 200;
+
+// Optional. Leave empty to detect automatically. If account links don't
+// open correctly, set this to your CRM base, e.g.
+//   "https://crm.zoho.com/crm/org123456789"
+// (open any record in CRM and copy the URL part before "/tab/").
+var CRM_RECORD_BASE_OVERRIDE = "";
+
+
+// ============================================================
+// STATE
+// ============================================================
+
 var lastReportData = null;
+var drillState = null;
+var drillRequestSeq = 0;
+var crmRecordBase = null;
 
 
 ZOHO.embeddedApp.on("PageLoad", function() {
+    resolveCrmRecordBase();
     loadReport();
 });
 
 ZOHO.embeddedApp.init();
+
+
+document.getElementById("report").addEventListener("click", function(event) {
+    var button = event.target.closest ? event.target.closest(".count-link") : null;
+    if (!button) return;
+    openDrill(button, button.getAttribute("data-bucket"), button.getAttribute("data-activity"));
+});
+
+document.getElementById("drillBody").addEventListener("click", function(event) {
+
+    if (!event.target.closest) return;
+
+    var link = event.target.closest(".account-link");
+    if (link) {
+        event.preventDefault();
+        openAccount(link.getAttribute("data-account-id"));
+        return;
+    }
+
+    var loadMore = event.target.closest(".load-more");
+    if (loadMore) {
+        fetchDrillPage();
+    }
+});
+
+
+// ============================================================
+// READER CALLS
+// ============================================================
+
+function callReader(args) {
+
+    var req_data = { "arguments": JSON.stringify(args || {}) };
+
+    return ZOHO.CRM.FUNCTIONS.execute(READER_FUNCTION, req_data)
+        .then(function(response) {
+            return { raw: response, data: findPayload(response) };
+        });
+}
 
 
 function loadReport() {
@@ -196,20 +307,20 @@ function loadReport() {
     button.disabled = true;
     button.innerText = "Loading...";
 
+    closeDrill();
+
     report.innerHTML = '<div class="loading">Loading report from Zoho CRM...</div>';
 
-    var req_data = { "arguments": JSON.stringify({}) };
+    callReader({ "mode": "summary" })
 
-    ZOHO.CRM.FUNCTIONS.execute("bucket_activity_reader", req_data)
+        .then(function(result) {
 
-        .then(function(response) {
-
-            var data = findPayload(response);
+            var data = result.data;
 
             if (!data) {
                 report.innerHTML =
                     '<div class="error">Response received, but no usable data was found.<br><pre>' +
-                    escapeHtml(JSON.stringify(response, null, 2)) + '</pre></div>';
+                    escapeHtml(JSON.stringify(result.raw, null, 2)) + '</pre></div>';
                 return;
             }
 
@@ -223,9 +334,6 @@ function loadReport() {
             populateOwnerFilter();
             renderTable();
 
-            document.getElementById("totalAccounts").innerText = formatNumber(data.total_accounts);
-            document.getElementById("accountsWithCalls").innerText = formatNumber(data.accounts_with_calls);
-            document.getElementById("accountsWithoutCalls").innerText = formatNumber(data.accounts_without_calls);
             document.getElementById("lastUpdated").innerText = "Last Updated: " + (data.generated_time || "-");
 
         })
@@ -238,7 +346,7 @@ function loadReport() {
 
         .finally(function() {
             button.disabled = false;
-            button.innerText = "Refresh Report";
+            button.innerText = "Refresh";
         });
 
 }
@@ -259,7 +367,9 @@ function findPayload(response, depth) {
 
     if (typeof response === "object") {
 
-        if (Array.isArray(response.owner_names) || response.status === "error") {
+        if (Array.isArray(response.owner_names) ||
+            Array.isArray(response.accounts) ||
+            response.status === "error") {
             return response;
         }
 
@@ -283,10 +393,14 @@ function findPayload(response, depth) {
 }
 
 
+// ============================================================
+// SUMMARY TABLE
+// ============================================================
+
 function populateOwnerFilter() {
 
     var select = document.getElementById("ownerFilter");
-    var currentValue = select.value || "All Owners";
+    var currentValue = select.value || ALL_OWNERS_KEY;
 
     select.innerHTML = '<option value="All Owners">All Owners</option>';
 
@@ -299,9 +413,30 @@ function populateOwnerFilter() {
 
     select.value = currentValue;
     if (select.value !== currentValue) {
-        select.value = "All Owners";
+        select.value = ALL_OWNERS_KEY;
     }
 
+}
+
+
+function onOwnerChange() {
+    closeDrill();
+    renderTable();
+}
+
+
+function countCell(bucketKey, activity, value) {
+
+    var count = Number(value) || 0;
+
+    if (count <= 0) {
+        return '<td class="zero">0</td>';
+    }
+
+    return '<td><button type="button" class="count-link"' +
+        ' data-bucket="' + escapeHtml(bucketKey) + '"' +
+        ' data-activity="' + escapeHtml(activity) + '"' +
+        ' title="Show these ' + count + ' accounts">' + count + '</button></td>';
 }
 
 
@@ -309,7 +444,7 @@ function renderTable() {
 
     if (!lastReportData) return;
 
-    var selectedOwner = document.getElementById("ownerFilter").value || "All Owners";
+    var selectedOwner = document.getElementById("ownerFilter").value || ALL_OWNERS_KEY;
 
     var summary = lastReportData.owner_bucket_summary || {};
     var bucketData = summary[selectedOwner] || {};
@@ -318,9 +453,17 @@ function renderTable() {
         return a.toLowerCase().localeCompare(b.toLowerCase());
     });
 
-    var html = '<table><thead><tr>';
+    if (buckets.length === 0) {
+        document.getElementById("report").innerHTML =
+            '<div class="loading">No bucket data for this owner.</div>';
+        return;
+    }
+
+    var html = '<div class="table-scroll"><table><thead><tr>';
     html += '<th style="text-align:left;">Bucket</th>';
-    html += '<th>Total</th><th>0-30 Days</th><th>31-60 Days</th><th>61-90 Days</th><th>Not Touched</th>';
+    ACTIVITY_COLUMNS.forEach(function(column) {
+        html += '<th>' + escapeHtml(column) + '</th>';
+    });
     html += '</tr></thead><tbody>';
 
     var grand = { "Total": 0, "0-30 Days": 0, "31-60 Days": 0, "61-90 Days": 0, "Not Touched": 0 };
@@ -331,40 +474,343 @@ function renderTable() {
 
         html += '<tr>';
         html += '<td class="bucket-name">' + escapeHtml(bucket) + '</td>';
-        html += '<td>' + row.Total + '</td>';
-        html += '<td>' + row["0-30 Days"] + '</td>';
-        html += '<td>' + row["31-60 Days"] + '</td>';
-        html += '<td>' + row["61-90 Days"] + '</td>';
-        html += '<td>' + row["Not Touched"] + '</td>';
-        html += '</tr>';
 
-        grand.Total += row.Total;
-        grand["0-30 Days"] += row["0-30 Days"];
-        grand["31-60 Days"] += row["31-60 Days"];
-        grand["61-90 Days"] += row["61-90 Days"];
-        grand["Not Touched"] += row["Not Touched"];
+        ACTIVITY_COLUMNS.forEach(function(column) {
+            html += countCell(bucket, column, row[column]);
+            grand[column] += Number(row[column]) || 0;
+        });
+
+        html += '</tr>';
 
     });
 
     html += '<tr class="grand-total">';
     html += '<td class="bucket-name">Grand Total</td>';
-    html += '<td>' + grand.Total + '</td>';
-    html += '<td>' + grand["0-30 Days"] + '</td>';
-    html += '<td>' + grand["31-60 Days"] + '</td>';
-    html += '<td>' + grand["61-90 Days"] + '</td>';
-    html += '<td>' + grand["Not Touched"] + '</td>';
+    ACTIVITY_COLUMNS.forEach(function(column) {
+        html += countCell(ALL_BUCKETS_KEY, column, grand[column]);
+    });
     html += '</tr>';
 
-    html += '</tbody></table>';
-
-    if (buckets.length === 0) {
-        html = '<div class="loading">No bucket data for this owner.</div>';
-    }
+    html += '</tbody></table></div>';
 
     document.getElementById("report").innerHTML = html;
 
 }
 
+
+// ============================================================
+// ACCOUNT DRILL-DOWN
+// ============================================================
+
+function openDrill(button, bucket, activity) {
+
+    var owner = document.getElementById("ownerFilter").value || ALL_OWNERS_KEY;
+
+    var active = document.querySelectorAll(".count-link.active");
+    for (var i = 0; i < active.length; i++) active[i].classList.remove("active");
+    if (button) button.classList.add("active");
+
+    drillState = {
+        owner: owner,
+        bucket: bucket,
+        activity: activity,
+        accounts: [],
+        total: null,
+        generationId: null,
+        loading: false
+    };
+
+    var bucketLabel = bucket === ALL_BUCKETS_KEY ? "All buckets" : bucket;
+    var activityLabel = activity === TOTAL_ACTIVITY_KEY ? "All activity" : activity;
+
+    document.getElementById("drillTitle").innerText = bucketLabel + ", " + activityLabel;
+    document.getElementById("drillMeta").innerText = "Owner: " + owner;
+    document.getElementById("drillBody").innerHTML = '<div class="loading">Loading accounts...</div>';
+
+    var section = document.getElementById("drillSection");
+    section.hidden = false;
+
+    if (section.scrollIntoView) {
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    fetchDrillPage();
+}
+
+
+function fetchDrillPage() {
+
+    var state = drillState;
+    if (!state || state.loading) return;
+
+    state.loading = true;
+    var requestId = ++drillRequestSeq;
+
+    var loadMore = document.querySelector("#drillBody .load-more");
+    if (loadMore) {
+        loadMore.disabled = true;
+        loadMore.innerText = "Loading...";
+    }
+
+    callReader({
+        "mode": "accounts",
+        "owner": state.owner,
+        "bucket": state.bucket,
+        "activity": state.activity,
+        "offset": state.accounts.length,
+        "limit": DRILL_PAGE_SIZE
+    })
+
+        .then(function(result) {
+
+            if (drillState !== state || requestId !== drillRequestSeq) return;
+
+            var data = result.data;
+
+            if (!data) {
+                renderDrill("Response received, but no account list was found.");
+                return;
+            }
+
+            if (data.status === "error") {
+                renderDrill(data.message || "Unknown error.");
+                return;
+            }
+
+            state.accounts = state.accounts.concat(data.accounts || []);
+            state.total = Number(data.total_count) || 0;
+            state.generationId = data.generation_id || null;
+
+            renderDrill();
+        })
+
+        .catch(function(error) {
+            if (drillState !== state || requestId !== drillRequestSeq) return;
+            renderDrill("Unable to load accounts: " + JSON.stringify(error));
+        })
+
+        .finally(function() {
+            state.loading = false;
+            var button = document.querySelector("#drillBody .load-more");
+            if (button && drillState === state) {
+                button.disabled = false;
+            }
+        });
+}
+
+
+function renderDrill(errorMessage) {
+
+    var state = drillState;
+    if (!state) return;
+
+    var html = "";
+
+    if (state.generationId && lastReportData && lastReportData.generation_id &&
+        state.generationId !== lastReportData.generation_id) {
+        html += '<div class="note">The report was refreshed after this page loaded, so this list may not match ' +
+            'the counts above. Click Refresh to update the summary.</div>';
+    }
+
+    if (state.accounts.length > 0) {
+
+        var showOwner = state.owner === ALL_OWNERS_KEY;
+        var showBucket = state.bucket === ALL_BUCKETS_KEY;
+        var showActivity = state.activity === TOTAL_ACTIVITY_KEY;
+
+        html += '<div class="table-scroll"><table><thead><tr>';
+        html += '<th>#</th><th style="text-align:left;">Account Name</th>';
+        if (showOwner) html += '<th style="text-align:left;">Account Owner</th>';
+        if (showBucket) html += '<th style="text-align:left;">Bucket</th>';
+        if (showActivity) html += '<th style="text-align:left;">Activity</th>';
+        html += '</tr></thead><tbody>';
+
+        state.accounts.forEach(function(account, index) {
+            html += '<tr>';
+            html += '<td class="row-number">' + (index + 1) + '</td>';
+            html += '<td>' + accountLink(account) + '</td>';
+            if (showOwner) html += '<td>' + escapeHtml(account.owner) + '</td>';
+            if (showBucket) html += '<td>' + escapeHtml(account.bucket) + '</td>';
+            if (showActivity) html += '<td>' + escapeHtml(account.activity) + '</td>';
+            html += '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+
+    } else if (!errorMessage) {
+        html += '<div class="loading">No accounts found for this selection.</div>';
+    }
+
+    if (errorMessage) {
+        html += '<div class="error">' + escapeHtml(errorMessage) + '</div>';
+    }
+
+    if (state.total !== null && state.accounts.length < state.total) {
+        html += '<div class="load-more-row"><button type="button" class="secondary-button load-more">' +
+            'Load ' + Math.min(DRILL_PAGE_SIZE, state.total - state.accounts.length) + ' more</button></div>';
+    }
+
+    document.getElementById("drillBody").innerHTML = html;
+
+    var meta = "Owner: " + state.owner;
+    if (state.total !== null) {
+        meta += " | Showing " + state.accounts.length + " of " + state.total + " accounts";
+    }
+    meta += " | Click an account name to open it in Zoho CRM";
+    document.getElementById("drillMeta").innerText = meta;
+}
+
+
+function closeDrill() {
+
+    drillState = null;
+    drillRequestSeq++;
+
+    document.getElementById("drillSection").hidden = true;
+    document.getElementById("drillBody").innerHTML = "";
+
+    var active = document.querySelectorAll(".count-link.active");
+    for (var i = 0; i < active.length; i++) active[i].classList.remove("active");
+}
+
+
+// ============================================================
+// OPEN ACCOUNT IN ZOHO CRM
+// ============================================================
+
+function accountLink(account) {
+
+    var url = buildRecordUrl(account.id);
+
+    return '<a class="account-link" href="' + escapeHtml(url || "#") + '"' +
+        ' target="_blank" rel="noopener"' +
+        ' data-account-id="' + escapeHtml(account.id) + '">' +
+        escapeHtml(account.name || "(No Name)") + '</a>';
+}
+
+
+function buildRecordUrl(accountId) {
+    if (!crmRecordBase || !accountId) return null;
+    return crmRecordBase + "/tab/Accounts/" + encodeURIComponent(accountId);
+}
+
+
+function openAccount(accountId) {
+
+    if (!accountId) return;
+
+    // 1. Open in a new browser tab so the dashboard stays where it is.
+    var url = buildRecordUrl(accountId);
+
+    if (url) {
+        var win = null;
+        try { win = window.open(url, "_blank"); } catch (e) { win = null; }
+        if (win) {
+            try { win.opener = null; } catch (e) {}
+            return;
+        }
+    }
+
+    // 2. Fallback: ask Zoho CRM to open the record itself.
+    try {
+        var promise = ZOHO.CRM.UI.Record.open({ Entity: "Accounts", RecordID: accountId });
+        if (promise && typeof promise.catch === "function") {
+            promise.catch(function() { showOpenError(accountId); });
+        }
+    } catch (e) {
+        showOpenError(accountId);
+    }
+}
+
+
+function showOpenError(accountId) {
+
+    var body = document.getElementById("drillBody");
+    var existing = document.getElementById("openError");
+    if (existing) existing.remove();
+
+    var div = document.createElement("div");
+    div.id = "openError";
+    div.className = "error";
+    div.innerText = "Couldn't open account " + accountId +
+        " in Zoho CRM. Set CRM_RECORD_BASE_OVERRIDE in the widget code to your CRM URL.";
+    body.insertBefore(div, body.firstChild);
+}
+
+
+function resolveCrmRecordBase() {
+
+    if (CRM_RECORD_BASE_OVERRIDE) {
+        crmRecordBase = CRM_RECORD_BASE_OVERRIDE.replace(/\/+$/, "");
+        return;
+    }
+
+    var origin = detectCrmOrigin();
+    if (!origin) return;
+
+    try {
+        var promise = ZOHO.CRM.CONFIG.getOrgInfo();
+        if (!promise || typeof promise.then !== "function") return;
+
+        promise.then(function(info) {
+            var domain = findValueByKey(info, "domain_name", 0);
+            if (!domain) return;
+
+            crmRecordBase = origin + "/crm/" + encodeURIComponent(domain);
+
+            var links = document.querySelectorAll("#drillBody .account-link");
+            for (var i = 0; i < links.length; i++) {
+                var url = buildRecordUrl(links[i].getAttribute("data-account-id"));
+                if (url) links[i].setAttribute("href", url);
+            }
+        }).catch(function() {});
+    } catch (e) {}
+}
+
+
+function detectCrmOrigin() {
+
+    var candidates = [];
+
+    try {
+        var ancestors = window.location.ancestorOrigins;
+        if (ancestors) {
+            for (var i = 0; i < ancestors.length; i++) candidates.push(ancestors[i]);
+        }
+    } catch (e) {}
+
+    try {
+        if (document.referrer) candidates.push(new URL(document.referrer).origin);
+    } catch (e) {}
+
+    for (var j = 0; j < candidates.length; j++) {
+        if (/^https:\/\/crm\.zoho(cloud)?\.[a-z.]+$/i.test(candidates[j])) {
+            return candidates[j];
+        }
+    }
+
+    return null;
+}
+
+
+function findValueByKey(obj, key, depth) {
+
+    if (depth > 6 || obj === null || typeof obj !== "object") return null;
+
+    if (obj[key]) return obj[key];
+
+    for (var k in obj) {
+        var found = findValueByKey(obj[k], key, depth + 1);
+        if (found) return found;
+    }
+
+    return null;
+}
+
+
+// ============================================================
+// UTILITIES
+// ============================================================
 
 function formatNumber(value) {
     if (value === undefined || value === null || value === "") return "0";
