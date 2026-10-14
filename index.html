@@ -1,1790 +1,332 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Management Dashboard</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Net Growth</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one equation at the top — new business won minus renewal lost — then the two
+   halves of it, then where it came from. Sized for a projector: few numbers, large type. */
+:root {
+  --bg: #eceff2;
+  --panel: #ffffff;
+  --ink: #16212b;
+  --muted: #5d6b78;
+  --line: #d9dfe5;
+  --head: #f3f5f7;
+  --accent: #0d6c6c;
+  --accent-soft: #d6ebe9;
 
-    <script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
+  --gain: #0d6c6c;
+  --gain-soft: #d6ebe9;
+  --loss: #a8402f;
+  --loss-soft: #f7e0db;
+  --open: #b7791f;
+  --open-soft: #f6e8cd;
+  --track: #dfe5ea;
 
-    <style>
-        * { box-sizing: border-box; }
+  color-scheme: light;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px; line-height: 1.45;
+}
+.wrap {
+  max-width: 1280px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 48px;
+}
 
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #f5f7fa;
-            color: #333;
-        }
+.top { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-end; margin-bottom: 16px; }
+h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+.sub { color: var(--muted); margin-top: 2px; }
+.filters { display: flex; gap: 10px; flex-wrap: wrap; }
+.filters label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
+select, button.act {
+  font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; padding: 8px 10px; min-width: 150px; text-align: left;
+}
+select { padding-right: 28px; }
+button.act { min-width: 0; cursor: pointer; }
+button.act:hover { border-color: var(--accent); color: var(--accent); }
+select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-        .container { max-width: 1300px; margin: 0 auto; }
+.sample { background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 16px; }
 
-        .header {
-            background: #ffffff;
-            padding: 20px 25px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(12, 1fr); }
+.full { grid-column: 1 / -1; }
+.half { grid-column: span 6; }
+.two-third { grid-column: span 8; }
+.third { grid-column: span 4; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px 22px; min-width: 0; }
+.panel h2 { margin: 0 0 16px; font-size: 15px; font-weight: 600; }
+.panel h2 small { font-weight: 400; color: var(--muted); margin-left: 6px; }
 
-        .header h1 { margin: 0 0 4px 0; font-size: 22px; color: #1f2937; }
-        .header p { margin: 0; color: #6b7280; font-size: 13px; }
+/* the equation */
+.eq { display: grid; grid-template-columns: 1fr auto 1fr auto 1.25fr; gap: 10px; align-items: stretch; }
+.eq .op { align-self: center; font-size: 32px; font-weight: 400; color: var(--muted); padding: 0 4px; }
+.term { padding: 18px 20px; border-radius: 8px; border: 1px solid var(--line); min-width: 0; }
+.term .lab { font-size: 13px; color: var(--muted); }
+.term .fig { font-size: 52px; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.term .foot { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.term.gain { background: var(--gain-soft); border-color: transparent; }
+.term.gain .fig, .term.gain .lab { color: var(--gain); }
+.term.loss { background: var(--loss-soft); border-color: transparent; }
+.term.loss .fig, .term.loss .lab { color: var(--loss); }
+.term.net { background: var(--ink); border-color: transparent; }
+.term.net .lab, .term.net .foot { color: #b9c6d2; }
+.term.net .fig { color: #ffffff; font-size: 60px; }
+.term.net.negative .fig { color: #ff9c86; }
 
-        .header-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* figure blocks inside panels */
+.figs { display: flex; gap: 32px; flex-wrap: wrap; }
+.figs > div > span { display: block; color: var(--muted); font-size: 12.5px; }
+.big { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 
-        #ownerFilter, #gistOwnerFilter, #quarterFilter {
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 1px solid #d1d5db;
-            font-size: 14px;
-            min-width: 180px;
-        }
+.stack { display: flex; height: 20px; border-radius: 6px; overflow: hidden; background: var(--track); margin-top: 16px; }
+.stack i { display: block; height: 100%; }
+.fill-gain { background: var(--gain); }
+.fill-loss { background: var(--loss); }
+.fill-open { background: var(--open); }
+.key { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.key i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.key b { color: var(--ink); font-variant-numeric: tabular-nums; }
 
-        #gistOwnerFilter { display: none; }
-        #gistOwnerFilter.visible { display: inline-block; }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 10px; }
+.pill.good { background: var(--gain-soft); color: var(--gain); }
+.pill.warn { background: var(--open-soft); color: var(--open); }
+.pill.bad { background: var(--loss-soft); color: var(--loss); }
 
-        #refreshButton {
-            background: #2563eb;
-            color: #ffffff;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-        }
+/* quarter columns: gains above the line, losses below */
+.qchart { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 18px; }
+/* one scale on both sides of the zero line: 3.6px per lakh */
+.qcol { display: grid; grid-template-rows: 110px 1px 96px auto; min-width: 0; }
+.qcol .up { display: flex; flex-direction: column; justify-content: flex-end; }
+.qcol .up i { display: block; background: var(--gain); border-radius: 4px 4px 0 0; }
+.qcol .zero { background: var(--line); }
+.qcol .down i { display: block; background: var(--loss); border-radius: 0 0 4px 4px; }
+.qcol .lbl { text-align: center; font-size: 12.5px; color: var(--muted); padding-top: 8px; }
+.qcol .lbl b { display: block; color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
+.qcol .lbl.now { color: var(--accent); }
+.qcol .cap { text-align: center; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.qcol .cap.up { color: var(--gain); padding-bottom: 3px; }
+.qcol .cap.dn { color: var(--loss); padding-top: 3px; }
 
-        #refreshButton:disabled { background: #9ca3af; }
+.scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 10px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { background: var(--head); font-weight: 600; font-size: 12.5px; color: var(--muted); }
+tbody th { font-weight: 500; }
+tfoot td, tfoot th { font-weight: 700; border-bottom: 0; border-top: 2px solid var(--line); }
+.gainc { color: var(--gain); }
+.lossc { color: var(--loss); }
+.openc { color: var(--open); }
+.hint { margin: 14px 0 0; color: var(--muted); font-size: 12.5px; }
 
-        .last-updated { font-size: 12px; color: #6b7280; }
-
-        .card-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .card {
-            background: #ffffff;
-            border-radius: 10px;
-            padding: 18px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            text-align: center;
-        }
-
-        .card-title { font-size: 13px; color: #6b7280; margin-bottom: 8px; }
-        .card-value { font-size: 26px; font-weight: bold; color: #111827; }
-        .card-value.target { color: #7c3aed; }
-        .card-value.achieved { color: #059669; }
-        .card-value.pending { color: #d97706; }
-        .card-value.waiting { color: #9ca3af; font-size: 18px; }
-
-        .section {
-            background: #ffffff;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
-        }
-
-        .section h2 { margin: 0 0 15px 0; font-size: 17px; color: #1f2937; }
-
-        .table-scroll { overflow-x: auto; }
-
-        table { border-collapse: collapse; width: 100%; }
-
-        th, td {
-            border: 1px solid #d0d7de;
-            padding: 8px 10px;
-            text-align: center;
-            font-size: 13px;
-        }
-
-        th { background: #1f4e78; color: #ffffff; }
-
-        td.row-label { text-align: left; font-weight: 600; }
-
-        tr.grand-total { background: #d9eaf7; font-weight: 700; }
-        tbody tr:nth-child(even) { background: #f7f9fb; }
-
-        .loading { padding: 30px; text-align: center; color: #6b7280; }
-        .error { padding: 15px; background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; color: #991b1b; font-size: 14px; }
-
-        .card-value.clickable, td.clickable, .funnel-row.clickable {
-            cursor: pointer;
-        }
-
-        .card-value.clickable, td.clickable .big, td.clickable.plain {
-            text-decoration: underline;
-            text-decoration-style: dotted;
-            text-decoration-color: #93c5fd;
-        }
-
-        .card-value.clickable:hover, td.clickable:hover { opacity: 0.75; }
-
-        /* ---- Modal ---- */
-
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.45);
-            z-index: 100;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-overlay.open { display: flex; }
-
-        .modal-box {
-            background: #ffffff;
-            border-radius: 10px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 70vh;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-
-        .modal-header {
-            padding: 16px 20px;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-header h3 { margin: 0; font-size: 16px; color: #1f2937; }
-
-        .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #6b7280; line-height: 1; }
-
-        .modal-body { padding: 12px 20px; overflow-y: auto; }
-        .modal-body ul { margin: 0; padding-left: 20px; }
-        .modal-body li { padding: 4px 0; font-size: 13px; color: #374151; }
-        .modal-empty { color: #6b7280; font-size: 13px; padding: 10px 0; }
-        .modal-count { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
-
-        /* ---- Expected business: plan summary strip ---- */
-
-        .eb-summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-
-        .eb-tile {
-            border: 1px solid #dbe3ec;
-            border-left: 5px solid #1f4e78;
-            border-radius: 7px;
-            padding: 10px 14px;
-            background: #f8fafc;
-        }
-
-        .eb-tile .label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; }
-        .eb-tile .value { display: block; font-size: 20px; font-weight: 700; color: #111827; }
-        .eb-tile .sub { display: block; font-size: 11px; color: #6b7280; margin-top: 2px; }
-
-        /* ---- Expected business: table ---- */
-
-        .eb-table th { white-space: nowrap; }
-
-        .plan-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 2px;
-            margin-right: 6px;
-            vertical-align: middle;
-            border: 1px solid rgba(255,255,255,0.7);
-        }
-
-        .amount-cell .big { font-size: 15px; font-weight: 700; display: block; color: #1f2937; }
-        .amount-cell .small { font-size: 11px; color: #6b7280; }
-        .amount-cell.zero .big { color: #b6bec9; font-weight: 400; }
-        .amount-cell.total-col { background: #eef6ff; }
-        .amount-cell.total-col .big { color: #1457b8; }
-
-        .mix-col { min-width: 160px; }
-
-        .mix-bar {
-            display: flex;
-            height: 14px;
-            border-radius: 3px;
-            overflow: hidden;
-            background: #eef1f5;
-        }
-
-        .mix-bar span { display: block; height: 100%; }
-
-        .data-source { margin-top: 10px; font-size: 12px; color: #6b7280; }
-
-        .warn-note {
-            margin-top: 10px;
-            padding: 10px 12px;
-            background: #fffbeb;
-            border: 1px solid #fde68a;
-            border-radius: 6px;
-            color: #92400e;
-            font-size: 13px;
-        }
-
-        .warn-note code { background: #fef3c7; padding: 1px 4px; border-radius: 3px; }
-
-        /* ---- Stage-wise funnel ---- */
-
-        .funnel { display: flex; flex-direction: column; gap: 6px; }
-
-        .funnel-row {
-            display: grid;
-            grid-template-columns: 230px 1fr 140px;
-            align-items: center;
-            gap: 12px;
-            padding: 4px 6px;
-            border-radius: 6px;
-        }
-
-        .funnel-row:hover { background: #f3f4f6; }
-
-        .funnel-stage { font-size: 13px; font-weight: 600; color: #1f2937; }
-
-        .funnel-track { display: flex; justify-content: center; }
-
-        .funnel-bar { height: 26px; border-radius: 4px; min-width: 6px; }
-
-        .funnel-value { text-align: right; }
-        .funnel-value .big { display: block; font-size: 14px; font-weight: 700; color: #1f2937; }
-        .funnel-value .small { font-size: 11px; color: #6b7280; }
-
-        .funnel-total {
-            margin-top: 8px;
-            padding-top: 10px;
-            border-top: 1px solid #e5e7eb;
-            font-size: 13px;
-            color: #374151;
-            text-align: right;
-        }
-
-        @media (max-width: 900px) {
-            .card-row { grid-template-columns: repeat(2, 1fr); }
-            .funnel-row { grid-template-columns: 140px 1fr 100px; }
-            .mix-col { display: none; }
-        }
-    </style>
+@media (max-width: 1000px) {
+  .eq { grid-template-columns: 1fr; }
+  .eq .op { display: none; }
+  .term.net .fig { font-size: 48px; }
+}
+@media (max-width: 900px) {
+  .half, .two-third, .third { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  h1 { font-size: 23px; }
+  .term .fig { font-size: 40px; }
+  .term.net .fig { font-size: 44px; }
+  .big { font-size: 26px; }
+  .qcol .cap { display: none; }
+}
+</style>
 </head>
-
 <body>
+<div class="wrap">
 
-<div class="container">
-
-    <div class="header">
-        <div>
-            <h1>Management Dashboard</h1>
-            <p>Owner-filterable target, activity, and pipeline overview</p>
-        </div>
-        <div class="header-controls">
-            <select id="ownerFilter" onchange="renderAll()">
-                <option value="All Owners">All Owners</option>
-            </select>
-            <select id="gistOwnerFilter" onchange="renderAll()">
-                <option value="All GIST Account Owners">All GIST Account Owners</option>
-            </select>
-            <select id="quarterFilter" onchange="renderAll()">
-                <option value="All Quarters">All Quarters</option>
-                <option value="Q1">Q1</option>
-                <option value="Q2">Q2</option>
-                <option value="Q3">Q3</option>
-                <option value="Q4">Q4</option>
-            </select>
-            <button id="refreshButton" onclick="loadReport()">Refresh</button>
-            <div class="last-updated" id="lastUpdated">Last Updated: -</div>
-        </div>
+  <header class="top">
+    <div>
+      <h1>Net Growth</h1>
+      <div class="sub">New business won, less revenue lost at renewal &middot; FY 2026-27</div>
     </div>
-
-    <div id="content">
-        <div class="loading">Loading dashboard...</div>
+    <div class="filters">
+      <label>Deal type
+        <select><option>New + Renewal</option><option>New business only</option><option>Renewal only</option></select>
+      </label>
+      <label>Quarter
+        <select><option>FY 2026-27 (full year)</option><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select>
+      </label>
+      <label>Owner
+        <select>
+          <option>Company total</option>
+          <option>Sales team (4 owners)</option>
+          <option>Outside sales team</option>
+          <optgroup label="New business owners">
+            <option>Anurag Mishra</option>
+            <option>Tejal Pandya</option>
+            <option>Ashish Kumar</option>
+            <option>GIST HQ</option>
+          </optgroup>
+          <optgroup label="Renewal / CSM owners">
+            <option disabled>&mdash; read live from CRM &mdash;</option>
+          </optgroup>
+          <optgroup label="Other owners">
+            <option disabled>&mdash; read live from CRM &mdash;</option>
+          </optgroup>
+        </select>
+      </label>
+      <label>&nbsp;<button class="act" type="button">Refresh</button></label>
     </div>
+  </header>
 
-    <div class="section">
-        <h2>Account Owner Summary (FY 2026-27)</h2>
-        <div id="accountOwnerSummarySection">
-            <div class="loading">Loading account owner summary...</div>
+  <div class="sample">Layout for review. Renewal figures are the real ones from your Zoho renewal dashboard; targets are from your target sheet. New business won is a placeholder until I read it from CRM, so the net growth figure will move. The owner filter lists every owner in CRM &mdash; new-business owners, renewal/CSM owners and anyone else &mdash; grouped so the board can pick a person or a scope; only the four new-business owners have a target, so for everyone else the target column reads &ldquo;no target&rdquo;.</div>
+
+  <main class="grid">
+
+    <!-- the board's question, as one equation -->
+    <section class="panel full">
+      <h2>Where the business actually moved <small>a renewal that renews holds revenue flat, so only these two change the total</small></h2>
+      <div class="eq">
+        <div class="term gain">
+          <div class="lab">New business won</div>
+          <div class="fig">+60.4 L</div>
+          <div class="foot">17% of a 365.00 L target</div>
         </div>
-    </div>
+        <div class="op">&minus;</div>
+        <div class="term loss">
+          <div class="lab">Revenue lost at renewal</div>
+          <div class="fig">&minus;36.9 L</div>
+          <div class="foot">22 accounts did not renew</div>
+        </div>
+        <div class="op">=</div>
+        <div class="term net">
+          <div class="lab">Net growth this year</div>
+          <div class="fig">+23.5 L</div>
+          <div class="foot">Every 1.00 L of new business is carrying 0.61 L of churn</div>
+        </div>
+      </div>
+    </section>
 
+    <!-- the two halves -->
+    <section class="panel half">
+      <h2>New business <small>against target</small></h2>
+      <div class="figs">
+        <div><span>Won</span><div class="big gainc">60.4 L</div></div>
+        <div><span>Target</span><div class="big">365.0 L</div></div>
+        <div><span>Achievement</span><div class="big">17%</div></div>
+        <div><span>Still in pipeline</span><div class="big openc">421.4 L</div></div>
+      </div>
+      <div class="stack" role="img" aria-label="60.4 lakh won of a 365 lakh target">
+        <i class="fill-gain" style="width:16.5%"></i>
+      </div>
+      <div class="key">
+        <span><i class="fill-gain"></i>Won <b>60.4 L</b></span>
+        <span>Target <b>365.0 L</b> &middot; India 205.0 L, International 160.0 L</span>
+      </div>
+      <p class="hint">Halfway through the year, so the pace figure for 17% achieved is roughly 50% of target.</p>
+    </section>
+
+    <section class="panel half">
+      <h2>Renewals <small>against the book due this year</small></h2>
+      <div class="figs">
+        <div><span>Retained</span><div class="big gainc">235.4 L</div></div>
+        <div><span>Lost</span><div class="big lossc">36.9 L</div></div>
+        <div><span>Still open</span><div class="big openc">512.9 L</div></div>
+        <div><span>Retention</span><div class="big">86%</div></div>
+      </div>
+      <div class="stack" role="img" aria-label="Of a 785.1 lakh renewal book: 235.4 lakh retained, 36.9 lakh lost, 512.9 lakh still open">
+        <i class="fill-gain" style="width:30.0%"></i>
+        <i class="fill-loss" style="width:4.7%"></i>
+        <i class="fill-open" style="width:65.3%"></i>
+      </div>
+      <div class="key">
+        <span><i class="fill-gain"></i>Retained <b>235.4 L</b></span>
+        <span><i class="fill-loss"></i>Lost <b>36.9 L</b></span>
+        <span><i class="fill-open"></i>Open <b>512.9 L</b></span>
+      </div>
+      <p class="hint">Book due this year 785.1 L. Retention is what was kept out of everything decided so far; 512.9 L has not come up for renewal yet.</p>
+    </section>
+
+    <!-- quarter trend -->
+    <section class="panel two-third">
+      <h2>Net growth by quarter <small>new business above the line, renewal losses below</small></h2>
+      <div class="qchart">
+        <div class="qcol">
+          <div class="up"><div class="cap up">+24.5</div><i style="height:88px"></i></div>
+          <div class="zero"></div>
+          <div class="down"><i style="height:75px"></i><div class="cap dn">&minus;20.8</div></div>
+          <div class="lbl">Q1<b>+3.7 L</b></div>
+        </div>
+        <div class="qcol">
+          <div class="up"><div class="cap up">+21.3</div><i style="height:77px"></i></div>
+          <div class="zero"></div>
+          <div class="down"><i style="height:58px"></i><div class="cap dn">&minus;16.1</div></div>
+          <div class="lbl">Q2<b>+5.2 L</b></div>
+        </div>
+        <div class="qcol">
+          <div class="up"><div class="cap up">+14.6</div><i style="height:53px"></i></div>
+          <div class="zero"></div>
+          <div class="down"><i style="height:0"></i><div class="cap dn">0.0</div></div>
+          <div class="lbl now">Q3 &middot; current<b>+14.6 L</b></div>
+        </div>
+        <div class="qcol">
+          <div class="up"><div class="cap up">0.0</div><i style="height:0"></i></div>
+          <div class="zero"></div>
+          <div class="down"><i style="height:0"></i><div class="cap dn">0.0</div></div>
+          <div class="lbl">Q4<b>0.0 L</b></div>
+        </div>
+      </div>
+      <p class="hint">Q1 and Q2 each grew by only a few lakh because almost everything sold was cancelled out by churn. Q3 looks stronger mainly because no renewal has been lost in it yet, not because more was sold.</p>
+    </section>
+
+    <section class="panel third">
+      <h2>India and International</h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>&nbsp;</th><th>New won</th><th>Renewal lost</th><th>Net</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">India</th><td class="gainc">42.3 L</td><td class="lossc">36.1 L</td><td><strong>+6.2 L</strong></td></tr>
+            <tr><th scope="row">International</th><td class="gainc">18.1 L</td><td class="lossc">0.8 L</td><td><strong>+17.3 L</strong></td></tr>
+          </tbody>
+          <tfoot><tr><th scope="row">Total</th><td class="gainc">60.4 L</td><td class="lossc">36.9 L</td><td>+23.5 L</td></tr></tfoot>
+        </table>
+      </div>
+      <p class="hint">International is producing nearly three quarters of the net growth from a quarter of the new business, because almost nothing is churning there.</p>
+    </section>
+
+    <!-- teams -->
+    <section class="panel full">
+      <h2>New business by team <small>target, won and what is left to find</small></h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Team</th><th>Target</th><th>Won</th><th>Achievement</th><th>Gap to target</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">International</th><td>160.0 L</td><td class="gainc">18.1 L</td><td><span class="pill bad">11%</span></td><td class="lossc">141.9 L</td></tr>
+            <tr><th scope="row">Karthik &amp; Vivekananda</th><td>50.0 L</td><td class="gainc">8.2 L</td><td><span class="pill bad">16%</span></td><td class="lossc">41.8 L</td></tr>
+            <tr><th scope="row">Anurag</th><td>45.0 L</td><td class="gainc">9.6 L</td><td><span class="pill bad">21%</span></td><td class="lossc">35.4 L</td></tr>
+            <tr><th scope="row">Girish, Ruchi &amp; Prasad</th><td>30.0 L</td><td class="gainc">6.4 L</td><td><span class="pill bad">21%</span></td><td class="lossc">23.6 L</td></tr>
+            <tr><th scope="row">Tejal</th><td>30.0 L</td><td class="gainc">5.8 L</td><td><span class="pill bad">19%</span></td><td class="lossc">24.2 L</td></tr>
+            <tr><th scope="row">Ashish</th><td>25.0 L</td><td class="gainc">8.2 L</td><td><span class="pill warn">33%</span></td><td class="lossc">16.8 L</td></tr>
+            <tr><th scope="row">Sharansh Gond</th><td>25.0 L</td><td class="gainc">4.1 L</td><td><span class="pill bad">16%</span></td><td class="lossc">20.9 L</td></tr>
+          </tbody>
+          <tfoot><tr><th scope="row">Total</th><td>365.0 L</td><td class="gainc">60.4 L</td><td><span class="pill bad">17%</span></td><td class="lossc">304.6 L</td></tr></tfoot>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <p class="hint">New business won counts Closed Won deals of Deal Type New with an actual order date in the period. Revenue lost at renewal counts Renewal deals marked Closed Lost. A renewal that renews is not counted as growth, because it holds revenue where it already was. International amounts are converted at 95 per USD. Changing the deal type filter to New or Renewal shows only that half of the page.</p>
 </div>
-
-<div class="modal-overlay" id="drilldownModal">
-    <div class="modal-box">
-        <div class="modal-header">
-            <h3 id="drilldownTitle">Records</h3>
-            <button class="modal-close" onclick="closeDrilldown()">&times;</button>
-        </div>
-        <div class="modal-body" id="drilldownBody">Loading...</div>
-    </div>
-</div>
-
-<script>
-
-/* =========================================================
-   CONFIGURATION
-   ========================================================= */
-
-var FY_FILTER = "2026-2027";
-var FY_SHORT_LABEL = "FY 26-27";
-
-/*
- * Deal field API names.
- * Leave a value as "" to let the widget auto-detect it from your Deals
- * field list. If the note under the Quarter x Plan table says the wrong
- * field is being used, type the correct API name here
- * (Setup > Developer Hub > APIs & SDKs > API Names > Deals).
- */
-var DEAL_FIELDS = {
-    amount: "",              // auto: field labelled "Expected Business", else "Amount"
-    plan: "",                // auto: "Deal_Category", else a field labelled "Plan"
-    year: "",                // auto: "Year2", else a field labelled "Year"
-    closingDate: "Closing_Date"
-};
-
-/* "rupees" = amounts are stored like 1112000, "lakh" = stored like 11.12, "auto" = decide from the data */
-var AMOUNT_UNIT = "auto";
-
-/* Closed Lost deals are not counted as expected business (they still appear in the stage funnel) */
-var EXCLUDE_LOST_FROM_EXPECTED = true;
-
-var PLAN_COLORS = { "Plan A": "#d64550", "Plan B": "#f0b429", "Plan C": "#e8919c", "No Plan": "#9ca3af" };
-var EXTRA_PLAN_COLORS = ["#0ea5e9", "#8b5cf6", "#10b981", "#f97316", "#6b7280"];
-
-var GIST_ACCOUNT_OWNER_DEFAULT = "All GIST Account Owners";
-var ALLOWED_ACCOUNT_OWNERS = ["Anurag Mishra", "Tejal Pandya", "GIST HQ"];
-
-var PAYMENT_RECEIVED_STAGES = ["Payment Received", "Short Payment", "Part Payment Received"];
-var PAYMENT_PENDING_STAGES = ["Order Booked", "Email Confirmation", "PI Sent - Order Received"];
-var CLOSED_WON_STAGES = PAYMENT_RECEIVED_STAGES.concat(PAYMENT_PENDING_STAGES, ["Closed Won"]);
-var CLOSED_LOST_STAGE = "Closed Lost";
-var EXCLUDED_DEAL_NAME_WORDS = ["test", "trigya"];
-
-/* Order of stages in the funnel. Stages not listed here are added at the end. */
-var STAGE_ORDER = [
-    "Met and Interested",
-    "Demonstrated and Queries Handled",
-    "Proposal Sent",
-    "Negotiation/Review",
-    "PI Sent - Order Received",
-    "Email Confirmation",
-    "Order Booked",
-    "Part Payment Received",
-    "Short Payment",
-    "Payment Received",
-    "Closed Won",
-    "Closed Lost"
-];
-
-var CARD_CATEGORIES = ["achieved", "payment_received", "payment_pending", "current_pipeline"];
-
-
-/* =========================================================
-   STATE
-   ========================================================= */
-
-var lastReportData = null;
-var lastAccountOwnerSummaryData = null;
-var renderToken = 0;
-
-var liveDataPromise = null;
-var resolvedFields = null;
-var amountUnitInUse = "rupees";
-
-ZOHO.embeddedApp.on("PageLoad", function() { loadReport(); loadAccountOwnerSummary(); });
-ZOHO.embeddedApp.init();
-
-
-/* =========================================================
-   LOAD CACHED REPORT (writer output)
-   ========================================================= */
-
-function loadReport() {
-
-    var button = document.getElementById("refreshButton");
-    var content = document.getElementById("content");
-
-    button.disabled = true;
-    button.innerText = "Loading...";
-    content.innerHTML = '<div class="loading">Loading dashboard from Zoho CRM...</div>';
-
-    // Refresh also reloads live Deals/Accounts; start fetching them now in parallel
-    liveDataPromise = null;
-    loadLiveData().catch(function() {});
-
-    ZOHO.CRM.FUNCTIONS.execute("Mgmt_dashboard_reader", { "arguments": JSON.stringify({}) })
-
-        .then(function(response) {
-
-            var data = findPayload(response);
-
-            if (!data) {
-                content.innerHTML = '<div class="error">Response received, but no usable data was found.</div>';
-                return;
-            }
-
-            if (data.status === "error") {
-                content.innerHTML = '<div class="error">' + escapeHtml(data.message || "Unknown error.") + '</div>';
-                return;
-            }
-
-            lastReportData = data;
-            populateOwnerFilter();
-            populateGistOwnerFilter();
-            renderAll();
-
-            document.getElementById("lastUpdated").innerText = "Last Updated: " + (data.generated_time || "-");
-        })
-
-        .catch(function(error) {
-            content.innerHTML = '<div class="error">Unable to load dashboard.<br><pre>' +
-                escapeHtml(JSON.stringify(error, null, 2)) + '</pre></div>';
-        })
-
-        .finally(function() {
-            button.disabled = false;
-            button.innerText = "Refresh";
-        });
-}
-
-
-function findPayload(response, depth) {
-
-    depth = depth || 0;
-    if (depth > 8 || response === null || response === undefined) return null;
-
-    if (typeof response === "string") {
-        try { return findPayload(JSON.parse(response), depth + 1); }
-        catch (e) { return null; }
-    }
-
-    if (typeof response === "object") {
-
-        if (response.per_owner || Array.isArray(response.owners) || response.status === "error") {
-            return response;
-        }
-
-        var priorityKeys = ["output", "details", "result", "response", "data"];
-
-        for (var i = 0; i < priorityKeys.length; i++) {
-            if (response[priorityKeys[i]] !== undefined) {
-                var found = findPayload(response[priorityKeys[i]], depth + 1);
-                if (found) return found;
-            }
-        }
-
-        for (var key in response) {
-            if (priorityKeys.indexOf(key) !== -1) continue;
-            var found2 = findPayload(response[key], depth + 1);
-            if (found2) return found2;
-        }
-    }
-
-    return null;
-}
-
-
-function populateOwnerFilter() {
-
-    var select = document.getElementById("ownerFilter");
-    var currentValue = select.value || "All Owners";
-
-    select.innerHTML = '<option value="All Owners">All Owners</option>';
-
-    ALLOWED_ACCOUNT_OWNERS.forEach(function(name) {
-        var option = document.createElement("option");
-        option.value = name;
-        option.innerText = name;
-        select.appendChild(option);
-    });
-
-    select.value = currentValue;
-    if (select.value !== currentValue) select.value = "All Owners";
-}
-
-
-function populateGistOwnerFilter() {
-
-    var select = document.getElementById("gistOwnerFilter");
-    var selectedOwner = document.getElementById("ownerFilter").value || "All Owners";
-    var previous = select.value;
-
-    select.innerHTML = '<option value="' + GIST_ACCOUNT_OWNER_DEFAULT + '">' + GIST_ACCOUNT_OWNER_DEFAULT + '</option>';
-
-    var report = lastReportData || {};
-    var gistOwnerData = (report.per_owner && report.per_owner["GIST HQ"]) || {};
-    var candidates = [].concat(
-        report.gist_account_owner_names || [],
-        report.gist_owner_names || [],
-        gistOwnerData.gist_account_owner_names || [],
-        gistOwnerData.gist_owner_names || []
-    );
-
-    [report.gist_account_owners, gistOwnerData.gist_account_owners].forEach(function(value) {
-        if (Array.isArray(value)) candidates = candidates.concat(value);
-        else if (value && typeof value === "object") candidates = candidates.concat(Object.keys(value));
-    });
-
-    var names = [];
-    candidates.forEach(function(value) {
-        var name = typeof value === "object" ? (value.name || value.label || value.owner_name) : value;
-        if (name && names.indexOf(String(name)) === -1) names.push(String(name));
-    });
-
-    names.sort(function(a, b) { return a.toLowerCase().localeCompare(b.toLowerCase()); });
-    names.forEach(function(name) {
-        var option = document.createElement("option");
-        option.value = name;
-        option.innerText = name;
-        select.appendChild(option);
-    });
-
-    select.classList.toggle("visible", selectedOwner === "GIST HQ");
-
-    if (selectedOwner === "GIST HQ" && previous) {
-        select.value = previous;
-        if (select.value !== previous) select.value = GIST_ACCOUNT_OWNER_DEFAULT;
-    } else {
-        select.value = GIST_ACCOUNT_OWNER_DEFAULT;
-    }
-}
-
-
-/* =========================================================
-   LIVE DEALS + ACCOUNTS (loaded once, reused by every section
-   and every drilldown until Refresh is clicked)
-   ========================================================= */
-
-function loadLiveData() {
-
-    if (!liveDataPromise) {
-
-        liveDataPromise = Promise.all([
-            resolveDealFields(),
-            zohoSearchAll("Deals", null),
-            zohoSearchAll("Accounts", null)
-        ]).then(function(results) {
-
-            resolvedFields = results[0];
-
-            var deals = results[1] || [];
-            var accounts = results[2] || [];
-            var accountsById = {};
-
-            accounts.forEach(function(a) {
-                if (!a.id) return;
-                accountsById[String(a.id)] = {
-                    id: String(a.id),
-                    name: a.Account_Name || "(Unnamed Account)",
-                    ownerId: ddLookupId(a.Owner),
-                    ownerName: ddLookupName(a.Owner),
-                    bucket: a.Bucket_Type || "No Bucket",
-                    raw: a
-                };
-            });
-
-            amountUnitInUse = decideAmountUnit(deals);
-
-            return { deals: deals, accountsById: accountsById, accountCount: accounts.length };
-        });
-
-        liveDataPromise.catch(function() { liveDataPromise = null; });
-    }
-
-    return liveDataPromise;
-}
-
-
-function resolveDealFields() {
-
-    function pick(explicit, fallbackApi) {
-        var api = explicit || fallbackApi;
-        return { api: api, label: api, found: false };
-    }
-
-    var fallback = {
-        amount: pick(DEAL_FIELDS.amount, "Amount"),
-        plan: pick(DEAL_FIELDS.plan, "Deal_Category"),
-        year: pick(DEAL_FIELDS.year, "Year2"),
-        closingDate: DEAL_FIELDS.closingDate || "Closing_Date",
-        metaLoaded: false
-    };
-
-    if (!ZOHO.CRM.META || !ZOHO.CRM.META.getFields) return Promise.resolve(fallback);
-
-    return ZOHO.CRM.META.getFields({ Entity: "Deals" })
-
-        .then(function(response) {
-
-            var fields = (response && (response.fields || response.data)) || [];
-            if (!Array.isArray(fields) || fields.length === 0) return fallback;
-
-            function byApi(name) {
-                for (var i = 0; i < fields.length; i++) if (fields[i].api_name === name) return fields[i];
-                return null;
-            }
-
-            function byLabel(regex) {
-                for (var i = 0; i < fields.length; i++) if (regex.test(fields[i].field_label || "")) return fields[i];
-                return null;
-            }
-
-            function choose(explicit, candidates, defaultApi) {
-                var field = explicit ? byApi(explicit) : null;
-                for (var i = 0; !field && !explicit && i < candidates.length; i++) field = candidates[i]();
-                if (field) return { api: field.api_name, label: field.field_label || field.api_name, found: true };
-                return { api: explicit || defaultApi, label: explicit || defaultApi, found: false };
-            }
-
-            return {
-                amount: choose(DEAL_FIELDS.amount, [
-                    function() { return byLabel(/expected\s*business/i); },
-                    function() { return byApi("Amount"); }
-                ], "Amount"),
-                plan: choose(DEAL_FIELDS.plan, [
-                    function() { return byApi("Deal_Category"); },
-                    function() { return byLabel(/\bplan\b/i); }
-                ], "Deal_Category"),
-                year: choose(DEAL_FIELDS.year, [
-                    function() { return byApi("Year2"); },
-                    function() { return byLabel(/\byear\b/i); }
-                ], "Year2"),
-                closingDate: DEAL_FIELDS.closingDate || "Closing_Date",
-                metaLoaded: true
-            };
-        })
-
-        .catch(function() { return fallback; });
-}
-
-
-function rawDealAmount(deal) {
-    var value = deal ? deal[resolvedFields.amount.api] : null;
-    if (value && typeof value === "object") value = value.value !== undefined ? value.value : value.amount;
-    if (value === undefined || value === null || value === "") return 0;
-    var parsed = Number(String(value).replace(/,/g, "").replace(/[₹$\s]|Rs\.?|INR/gi, ""));
-    return isNaN(parsed) ? 0 : parsed;
-}
-
-
-function decideAmountUnit(deals) {
-
-    if (AMOUNT_UNIT === "lakh" || AMOUNT_UNIT === "rupees") return AMOUNT_UNIT;
-
-    var field = resolvedFields.amount;
-    if (/lakh|lac\b/i.test(field.label + " " + field.api)) return "lakh";
-
-    var values = [];
-    deals.forEach(function(deal) {
-        if (dealFiscalYear(deal) !== FY_FILTER) return;
-        var value = Math.abs(rawDealAmount(deal));
-        if (value) values.push(value);
-    });
-
-    if (values.length === 0) return "rupees";
-
-    values.sort(function(a, b) { return a - b; });
-    var median = values[Math.floor(values.length / 2)];
-
-    // A typical deal is never under Rs. 1,000, so small numbers mean the field is in lakh
-    return median < 1000 ? "lakh" : "rupees";
-}
-
-
-function dealAmountLakh(deal) {
-    var raw = rawDealAmount(deal);
-    return amountUnitInUse === "lakh" ? raw : raw / 100000;
-}
-
-
-function dealPlanName(deal) {
-    var value = deal ? deal[resolvedFields.plan.api] : null;
-    if (Array.isArray(value)) value = value.join(", ");
-    if (value && typeof value === "object") value = value.name || value.value;
-    return String(value || "").trim() || "No Plan";
-}
-
-
-function dealFiscalYear(deal) {
-
-    var value = deal ? deal[resolvedFields.year.api] : null;
-    if (value && typeof value === "object") value = value.name || value.value;
-    value = String(value || "").trim();
-
-    if (value) {
-        value = value.replace(/^FY\s*/i, "").replace(/\s+/g, "");
-        var full = value.match(/^(\d{4})[-\/](\d{4})$/);
-        if (full) return full[1] + "-" + full[2];
-        var shortEnd = value.match(/^(\d{4})[-\/](\d{2})$/);
-        if (shortEnd) return shortEnd[1] + "-" + (Number(shortEnd[1]) + 1);
-        var bothShort = value.match(/^(\d{2})[-\/](\d{2})$/);
-        if (bothShort) return "20" + bothShort[1] + "-20" + bothShort[2];
-        return value;
-    }
-
-    var date = ddParseDate(deal && deal[resolvedFields.closingDate]);
-    if (!date) return "";
-    var year = date.getFullYear();
-    return (date.getMonth() + 1 >= 4) ? (year + "-" + (year + 1)) : ((year - 1) + "-" + year);
-}
-
-
-function isClosedWonStage(stage) {
-    return CLOSED_WON_STAGES.indexOf(String(stage || "").trim()) !== -1;
-}
-
-
-function isCurrentPipelineStage(stage) {
-    var normalized = String(stage || "").trim();
-    return !isClosedWonStage(normalized) && normalized !== CLOSED_LOST_STAGE;
-}
-
-
-function isExcludedTestDeal(deal) {
-    var name = String((deal && deal.Deal_Name) || "").toLowerCase();
-    return EXCLUDED_DEAL_NAME_WORDS.some(function(word) { return name.indexOf(word) !== -1; });
-}
-
-
-function accountGistOwnerName(account) {
-    if (!account) return "";
-    var value = account.GIST_Account_Owner || account.GIST_Account_Owner_Name ||
-        account.Gist_Account_Owner || account.GIST_Owner;
-    return ddLookupName(value, typeof value === "string" ? value : "");
-}
-
-
-function accountMatchesGistOwner(account, gistOwnerName) {
-    return !gistOwnerName ||
-        gistOwnerName === GIST_ACCOUNT_OWNER_DEFAULT ||
-        accountGistOwnerName(account) === gistOwnerName;
-}
-
-
-/*
- * Common per-deal filter used by the cards, both charts and every
- * deal drilldown, so the numbers and the popup lists always agree.
- * Returns null when the deal is outside FY / quarter / GIST filters.
- */
-function dealContext(deal, data, selectedQuarter, gistOwnerName) {
-
-    if (dealFiscalYear(deal) !== FY_FILTER) return null;
-
-    var accId = ddLookupId(deal.Account_Name);
-    if (!accId) return null;
-
-    var account = data.accountsById[accId] || null;
-    if (!accountMatchesGistOwner(account && account.raw, gistOwnerName)) return null;
-
-    var quarter = ddFiscalQuarter(ddParseDate(deal[resolvedFields.closingDate]));
-    var allQuarters = !selectedQuarter || selectedQuarter === "All Quarters";
-    if (!allQuarters && quarter !== selectedQuarter) return null;
-
-    return {
-        accId: accId,
-        account: account,
-        accName: account ? account.name : ddLookupName(deal.Account_Name, "(Unnamed Account)"),
-        quarter: quarter,
-        stage: String(deal.Stage || "").trim() || "Unknown",
-        amount: dealAmountLakh(deal),
-        plan: dealPlanName(deal),
-        dealOwnerId: ddLookupId(deal.Owner),
-        excluded: isExcludedTestDeal(deal)
-    };
-}
-
-
-/* Cards: scoped to the DEAL owner (same rule as the writer) */
-function matchesCardCategory(ctx, category, ownerId) {
-
-    if (ownerId && ctx.dealOwnerId !== ownerId) return false;
-
-    if (category === "achieved") return isClosedWonStage(ctx.stage) && !ctx.excluded;
-    if (category === "payment_received") return PAYMENT_RECEIVED_STAGES.indexOf(ctx.stage) !== -1 && !ctx.excluded;
-    if (category === "payment_pending") return PAYMENT_PENDING_STAGES.indexOf(ctx.stage) !== -1;
-    if (category === "current_pipeline") {
-        return isCurrentPipelineStage(ctx.stage) && !!ctx.account && ctx.account.ownerId === ctx.dealOwnerId;
-    }
-    return false;
-}
-
-
-/* Charts: scoped to the linked ACCOUNT owner */
-function matchesAccountOwner(ctx, ownerId) {
-    return !ownerId || (!!ctx.account && ctx.account.ownerId === ownerId);
-}
-
-
-function countsAsExpected(ctx) {
-    return !(EXCLUDE_LOST_FROM_EXPECTED && ctx.stage === CLOSED_LOST_STAGE);
-}
-
-
-function addAmount(target, key, amount) {
-    if (!target[key]) target[key] = { amount_lakh: 0, count: 0 };
-    target[key].amount_lakh += amount;
-    target[key].count += 1;
-}
-
-
-function computeDealMetrics(data, ownerId, gistOwnerName, selectedQuarter) {
-
-    var quarters = selectedQuarter && selectedQuarter !== "All Quarters"
-        ? [selectedQuarter]
-        : ["Q1", "Q2", "Q3", "Q4"];
-
-    var m = {
-        quarters: quarters,
-        plans: [],
-        matrix: {},
-        pipelineByQuarter: {},
-        planTotals: {},
-        stageTotals: {},
-        cards: { achieved: 0, payment_received: 0, payment_pending: 0, current_pipeline: 0 },
-        periodDeals: 0,
-        dealsWithAmount: 0,
-        dealsWithPlan: 0
-    };
-
-    quarters.forEach(function(q) {
-        m.matrix[q] = {};
-        m.pipelineByQuarter[q] = { amount_lakh: 0, count: 0 };
-    });
-
-    data.deals.forEach(function(deal) {
-
-        var ctx = dealContext(deal, data, selectedQuarter, gistOwnerName);
-        if (!ctx) return;
-
-        m.periodDeals++;
-        if (ctx.amount) m.dealsWithAmount++;
-        if (ctx.plan !== "No Plan") m.dealsWithPlan++;
-
-        CARD_CATEGORIES.forEach(function(category) {
-            if (matchesCardCategory(ctx, category, ownerId)) m.cards[category] += ctx.amount;
-        });
-
-        if (!matchesAccountOwner(ctx, ownerId)) return;
-
-        addAmount(m.stageTotals, ctx.stage, ctx.amount);
-
-        if (!ctx.quarter) return;
-
-        if (countsAsExpected(ctx)) {
-            addAmount(m.matrix[ctx.quarter], ctx.plan, ctx.amount);
-            addAmount(m.planTotals, ctx.plan, ctx.amount);
-        }
-
-        if (isCurrentPipelineStage(ctx.stage)) {
-            m.pipelineByQuarter[ctx.quarter].amount_lakh += ctx.amount;
-            m.pipelineByQuarter[ctx.quarter].count += 1;
-        }
-    });
-
-    var known = ["Plan A", "Plan B", "Plan C"];
-    var found = Object.keys(m.planTotals);
-
-    m.plans = known.filter(function(p) { return found.indexOf(p) !== -1; });
-    found.sort().forEach(function(p) {
-        if (m.plans.indexOf(p) === -1 && p !== "No Plan") m.plans.push(p);
-    });
-    if (found.indexOf("No Plan") !== -1) m.plans.push("No Plan");
-
-    return m;
-}
-
-
-/* =========================================================
-   RENDER
-   ========================================================= */
-
-function renderAll() {
-
-    if (!lastReportData || !lastReportData.per_owner) return;
-
-    var selectedOwner = document.getElementById("ownerFilter").value || "All Owners";
-    populateGistOwnerFilter();
-    var selectedGistOwner = document.getElementById("gistOwnerFilter").value || GIST_ACCOUNT_OWNER_DEFAULT;
-    var selectedQuarter = document.getElementById("quarterFilter").value || "All Quarters";
-    var owner = lastReportData.per_owner[selectedOwner];
-
-    if (!owner) {
-        document.getElementById("content").innerHTML = '<div class="error">No data for ' + escapeHtml(selectedOwner) +
-            '. Check that this name matches the owner name in Zoho exactly.</div>';
-        updateAccountOwnerSummaryDisplay();
-        return;
-    }
-
-    var ownerId = selectedOwner === "All Owners" ? null : (owner.owner_id || null);
-    var html = "";
-
-    html += '<div class="card-row">';
-    html += cardHtml("Target", Number(owner.target_lakhs || 0).toFixed(2) + " L", "target", null);
-    html += cardHtml("Achieved (Closed Won)", "Calculating...", "achieved waiting", "achieved");
-    html += cardHtml("Payment Received", "Calculating...", "achieved waiting", "payment_received");
-    html += cardHtml("Payment Pending / Pipeline", "Calculating...", "pending waiting", "payment_pending");
-    html += '</div>';
-
-    html += '<div class="card-row">';
-    html += cardHtml("Total Accounts", owner.total_accounts || 0, "", "total_accounts");
-    html += cardHtml("Untouched Accounts", owner.untouched || 0, "pending", "untouched");
-    html += cardHtml("Touched", owner.touched || 0, "achieved", "touched");
-    html += cardHtml("Current Pipeline", "Calculating...", "pending waiting", "current_pipeline");
-    html += '</div>';
-
-    html += '<div class="section"><h2>Bucket-wise Activity</h2>';
-    html += renderBucketTable(owner.bucket_summary);
-    html += '</div>';
-
-    html += '<div class="section"><h2>Expected Business This FY (Quarter &times; Plan)</h2>';
-    html += '<div id="expectedBusinessWrap"><div class="loading">Loading deals...</div></div>';
-    html += '</div>';
-
-    html += '<div class="section"><h2>Stage-wise Expected Business</h2>';
-    html += '<div id="stageFunnelWrap"><div class="loading">Loading deals...</div></div>';
-    html += '</div>';
-
-    document.getElementById("content").innerHTML = html;
-    attachDrilldownHandlers(ownerId, selectedOwner);
-
-    var myToken = ++renderToken;
-
-    loadLiveData()
-
-        .then(function(data) {
-
-            if (myToken !== renderToken) return;
-
-            var metrics = computeDealMetrics(data, ownerId, selectedGistOwner, selectedQuarter);
-
-            updateAmountCards(metrics.cards);
-            renderExpectedBusiness(metrics, data);
-            renderStageFunnel(metrics);
-            attachDrilldownHandlers(ownerId, selectedOwner);
-        })
-
-        .catch(function(err) {
-
-            if (myToken !== renderToken) return;
-            console.error("Live deal data error:", err);
-
-            var message = '<div class="error">Could not load Deals from Zoho CRM. Click Refresh to try again.</div>';
-            ["expectedBusinessWrap", "stageFunnelWrap"].forEach(function(id) {
-                var el = document.getElementById(id);
-                if (el) el.innerHTML = message;
-            });
-            CARD_CATEGORIES.forEach(function(cat) {
-                var el = document.getElementById("card-" + cat);
-                if (el) el.innerText = "—";
-            });
-        });
-
-    updateAccountOwnerSummaryDisplay();
-}
-
-
-function updateAccountOwnerSummaryDisplay() {
-    if (!lastAccountOwnerSummaryData) return;
-    var selectedOwner = document.getElementById("ownerFilter").value || "All Owners";
-    renderAccountOwnerSummary(lastAccountOwnerSummaryData, selectedOwner);
-}
-
-
-function cardHtml(title, value, colorClass, category) {
-
-    var clickableClass = category ? " clickable" : "";
-    var dataAttr = category ? ' data-cat="' + category + '"' : "";
-    var idAttr = category ? ' id="card-' + category + '"' : "";
-
-    return '<div class="card"><div class="card-title">' + escapeHtml(title) + '</div>' +
-        '<div class="card-value ' + colorClass + clickableClass + '"' + idAttr + dataAttr + '>' + value + '</div></div>';
-}
-
-
-function formatLakh(value) {
-    var number = Number(value);
-    if (isNaN(number)) number = 0;
-    return number.toFixed(2) + " L";
-}
-
-
-function updateAmountCards(cards) {
-    CARD_CATEGORIES.forEach(function(category) {
-        var element = document.getElementById("card-" + category);
-        if (!element) return;
-        element.innerText = formatLakh(cards[category]);
-        element.classList.remove("waiting");
-    });
-}
-
-
-function renderBucketTable(bucketSummary) {
-
-    var buckets = Object.keys(bucketSummary || {}).sort(function(a, b) {
-        return a.toLowerCase().localeCompare(b.toLowerCase());
-    });
-
-    if (buckets.length === 0) return '<div class="loading">No bucket data.</div>';
-
-    var html = '<div class="table-scroll"><table><thead><tr><th style="text-align:left;">Bucket</th>' +
-        '<th>Total</th><th>Last 30 Days</th><th>31-60 Days</th><th>60+ Days</th><th>Non-Touched</th></tr></thead><tbody>';
-
-    var grand = { Total: 0, last_30: 0, days_31_60: 0, days_60_plus: 0, non_touched: 0 };
-
-    function bucketCell(count, category) {
-        if (count && count > 0) {
-            return '<td class="clickable plain" data-cat="' + escapeHtml(category) + '">' + count + '</td>';
-        }
-        return '<td>' + (count || 0) + '</td>';
-    }
-
-    buckets.forEach(function(bucket) {
-
-        var row = bucketSummary[bucket];
-        var prefix = "bucket:" + encodeURIComponent(bucket) + ":";
-
-        html += '<tr><td class="row-label">' + escapeHtml(bucket) + '</td>';
-        html += bucketCell(row.Total, prefix + "Total");
-        html += bucketCell(row.last_30, prefix + "last_30");
-        html += bucketCell(row.days_31_60, prefix + "days_31_60");
-        html += bucketCell(row.days_60_plus, prefix + "days_60_plus");
-        html += bucketCell(row.non_touched, prefix + "non_touched");
-        html += '</tr>';
-
-        Object.keys(grand).forEach(function(key) { grand[key] += Number(row[key] || 0); });
-    });
-
-    html += '<tr class="grand-total"><td class="row-label">Grand Total</td>' +
-        '<td>' + grand.Total + '</td><td>' + grand.last_30 + '</td>' +
-        '<td>' + grand.days_31_60 + '</td><td>' + grand.days_60_plus + '</td>' +
-        '<td>' + grand.non_touched + '</td></tr>';
-
-    html += '</tbody></table></div>';
-
-    return html;
-}
-
-
-function planColor(plan, index) {
-    if (PLAN_COLORS[plan]) return PLAN_COLORS[plan];
-    return EXTRA_PLAN_COLORS[index % EXTRA_PLAN_COLORS.length];
-}
-
-
-function lakhCell(bucket, category, extraClass) {
-
-    var amount = Number((bucket && bucket.amount_lakh) || 0);
-    var count = Number((bucket && bucket.count) || 0);
-    var classes = "amount-cell" + (extraClass ? " " + extraClass : "") +
-        (count && category ? " clickable" : "") + (!count ? " zero" : "");
-    var dataAttr = count && category ? ' data-cat="' + escapeHtml(category) + '"' : "";
-
-    return '<td class="' + classes + '"' + dataAttr + '>' +
-        '<span class="big">' + amount.toFixed(2) + ' L</span>' +
-        '<span class="small">' + count + (count === 1 ? ' deal' : ' deals') + '</span></td>';
-}
-
-
-function renderExpectedBusiness(m, data) {
-
-    var wrap = document.getElementById("expectedBusinessWrap");
-    if (!wrap) return;
-
-    var notes = dataSourceNotes(m, data);
-
-    if (m.plans.length === 0) {
-        wrap.innerHTML = '<div class="loading">No expected business deals for ' + FY_SHORT_LABEL +
-            ' with the current filters.</div>' + notes;
-        return;
-    }
-
-    var grandExpected = 0;
-    var grandExpectedCount = 0;
-    m.plans.forEach(function(plan) {
-        grandExpected += m.planTotals[plan].amount_lakh;
-        grandExpectedCount += m.planTotals[plan].count;
-    });
-
-    var grandPipeline = { amount_lakh: 0, count: 0 };
-    m.quarters.forEach(function(q) {
-        grandPipeline.amount_lakh += m.pipelineByQuarter[q].amount_lakh;
-        grandPipeline.count += m.pipelineByQuarter[q].count;
-    });
-
-    // ---- Summary tiles: total, pipeline, and one per plan ----
-
-    var html = '<div class="eb-summary">';
-
-    html += '<div class="eb-tile" style="border-left-color:#1457b8;"><span class="label">Expected Business</span>' +
-        '<span class="value">' + formatLakh(grandExpected) + '</span>' +
-        '<span class="sub">' + grandExpectedCount + ' deals</span></div>';
-
-    html += '<div class="eb-tile" style="border-left-color:#d97706;"><span class="label">Current Pipeline</span>' +
-        '<span class="value">' + formatLakh(grandPipeline.amount_lakh) + '</span>' +
-        '<span class="sub">' + grandPipeline.count + ' open deals</span></div>';
-
-    m.plans.forEach(function(plan, i) {
-        var total = m.planTotals[plan];
-        var share = grandExpected ? Math.round((total.amount_lakh / grandExpected) * 100) : 0;
-        html += '<div class="eb-tile" style="border-left-color:' + planColor(plan, i) + ';">' +
-            '<span class="label">' + escapeHtml(plan) + '</span>' +
-            '<span class="value">' + formatLakh(total.amount_lakh) + '</span>' +
-            '<span class="sub">' + total.count + ' deals, ' + share + '% of total</span></div>';
-    });
-
-    html += '</div>';
-
-    // ---- Quarter x Plan table ----
-
-    html += '<div class="table-scroll"><table class="eb-table"><thead><tr>';
-    html += '<th style="text-align:left;">Quarter</th>';
-    m.plans.forEach(function(plan, i) {
-        html += '<th><span class="plan-dot" style="background:' + planColor(plan, i) + ';"></span>' + escapeHtml(plan) + '</th>';
-    });
-    html += '<th>Total Expected</th><th>Current Pipeline</th><th class="mix-col">Plan Mix</th></tr></thead><tbody>';
-
-    m.quarters.forEach(function(quarter) {
-
-        var rowTotal = { amount_lakh: 0, count: 0 };
-        m.plans.forEach(function(plan) {
-            var cell = m.matrix[quarter][plan];
-            if (!cell) return;
-            rowTotal.amount_lakh += cell.amount_lakh;
-            rowTotal.count += cell.count;
-        });
-
-        html += '<tr><td class="row-label">' + FY_SHORT_LABEL + ' ' + quarter + '</td>';
-
-        m.plans.forEach(function(plan) {
-            html += lakhCell(m.matrix[quarter][plan],
-                "qp:" + encodeURIComponent(quarter) + ":" + encodeURIComponent(plan));
-        });
-
-        html += lakhCell(rowTotal, null, "total-col");
-        html += lakhCell(m.pipelineByQuarter[quarter], "quarter_pipeline:" + encodeURIComponent(quarter));
-
-        html += '<td class="mix-col"><div class="mix-bar">';
-        m.plans.forEach(function(plan, i) {
-            var cell = m.matrix[quarter][plan];
-            if (!cell || !rowTotal.amount_lakh || cell.amount_lakh <= 0) return;
-            var pct = (cell.amount_lakh / rowTotal.amount_lakh) * 100;
-            html += '<span style="width:' + pct.toFixed(1) + '%;background:' + planColor(plan, i) + ';" title="' +
-                escapeHtml(plan) + ': ' + cell.amount_lakh.toFixed(2) + ' L"></span>';
-        });
-        html += '</div></td></tr>';
-    });
-
-    html += '<tr class="grand-total"><td class="row-label">Grand Total</td>';
-    m.plans.forEach(function(plan) {
-        html += '<td>' + formatLakh(m.planTotals[plan].amount_lakh) + '</td>';
-    });
-    html += '<td>' + formatLakh(grandExpected) + '</td>';
-    html += '<td>' + formatLakh(grandPipeline.amount_lakh) + '</td>';
-    html += '<td class="mix-col"></td></tr>';
-
-    html += '</tbody></table></div>';
-    html += notes;
-
-    wrap.innerHTML = html;
-}
-
-
-function dataSourceNotes(m, data) {
-
-    var f = resolvedFields;
-    var html = '<div class="data-source">Based on ' + data.deals.length + ' deals loaded (' + m.periodDeals +
-        ' in ' + FY_SHORT_LABEL + ' for the selected filters). Amount field: ' + escapeHtml(f.amount.label) +
-        ' (' + escapeHtml(f.amount.api) + ', read as ' + amountUnitInUse + '). Plan field: ' +
-        escapeHtml(f.plan.label) + ' (' + escapeHtml(f.plan.api) + '). Year field: ' +
-        escapeHtml(f.year.label) + ' (' + escapeHtml(f.year.api) + ').</div>';
-
-    var warnings = [];
-
-    if (data.deals.length > 0 && m.periodDeals === 0) {
-        warnings.push('No deals matched ' + FY_FILTER + '. Check the year field: set <code>DEAL_FIELDS.year</code> ' +
-            'at the top of the widget to your Deal Year field\'s API name.');
-    }
-    if (m.periodDeals > 0 && m.dealsWithAmount === 0) {
-        warnings.push('Every deal amount is 0, so the widget is probably reading the wrong field. Set ' +
-            '<code>DEAL_FIELDS.amount</code> to your Expected Business field\'s API name.');
-    }
-    if (m.periodDeals > 0 && m.dealsWithPlan === 0) {
-        warnings.push('No deal has a plan value, so the widget is probably reading the wrong field. Set ' +
-            '<code>DEAL_FIELDS.plan</code> to your Plan field\'s API name.');
-    }
-    if (data.deals.length > 0 && data.deals.length % 2000 === 0) {
-        warnings.push('Exactly ' + data.deals.length + ' deals loaded, which may mean Zoho stopped paging early ' +
-            'and some deals are missing.');
-    }
-
-    warnings.forEach(function(w) { html += '<div class="warn-note">' + w + '</div>'; });
-
-    return html;
-}
-
-
-function stageColor(stage, index) {
-    if (stage === CLOSED_LOST_STAGE) return "#dc2626";
-    if (PAYMENT_RECEIVED_STAGES.indexOf(stage) !== -1 || stage === "Closed Won") return "#059669";
-    if (PAYMENT_PENDING_STAGES.indexOf(stage) !== -1) return "#10b981";
-    var blues = ["#1f4e78", "#1d5fa8", "#2563eb", "#3b82f6", "#60a5fa"];
-    return blues[index % blues.length];
-}
-
-
-function renderStageFunnel(m) {
-
-    var wrap = document.getElementById("stageFunnelWrap");
-    if (!wrap) return;
-
-    var stages = STAGE_ORDER.filter(function(s) { return m.stageTotals[s] && m.stageTotals[s].count > 0; });
-    Object.keys(m.stageTotals).sort().forEach(function(s) {
-        if (stages.indexOf(s) === -1) stages.push(s);
-    });
-
-    if (stages.length === 0) {
-        wrap.innerHTML = '<div class="loading">No deals in ' + FY_SHORT_LABEL + ' for the selected filters.</div>';
-        return;
-    }
-
-    var maxAmount = Math.max.apply(null, stages.map(function(s) { return m.stageTotals[s].amount_lakh; }));
-    var maxCount = Math.max.apply(null, stages.map(function(s) { return m.stageTotals[s].count; }));
-    var useAmount = maxAmount > 0;
-
-    var totalAmount = 0;
-    var totalCount = 0;
-    var html = '<div class="funnel">';
-
-    stages.forEach(function(stage, i) {
-
-        var t = m.stageTotals[stage];
-        var ratio = useAmount ? t.amount_lakh / maxAmount : t.count / maxCount;
-        var width = Math.max(3, Math.round(ratio * 100));
-
-        totalAmount += t.amount_lakh;
-        totalCount += t.count;
-
-        html += '<div class="funnel-row clickable" data-cat="stage:' + escapeHtml(encodeURIComponent(stage)) + '" ' +
-            'title="Click to see accounts">' +
-            '<div class="funnel-stage">' + escapeHtml(stage) + '</div>' +
-            '<div class="funnel-track"><div class="funnel-bar" style="width:' + width + '%;background:' +
-            stageColor(stage, i) + ';"></div></div>' +
-            '<div class="funnel-value"><span class="big">' + formatLakh(t.amount_lakh) + '</span>' +
-            '<span class="small">' + t.count + (t.count === 1 ? ' deal' : ' deals') + '</span></div>' +
-            '</div>';
-    });
-
-    html += '</div>';
-    html += '<div class="funnel-total">All stages: <strong>' + formatLakh(totalAmount) + '</strong> across ' +
-        totalCount + ' deals</div>';
-
-    wrap.innerHTML = html;
-}
-
-
-/* =========================================================
-   DRILLDOWN
-   ========================================================= */
-
-function zohoSearchAll(module, criteria) {
-
-    return new Promise(function(resolve) {
-
-        var allRecords = [];
-        var page = 1;
-
-        function fetchPage() {
-
-            var searchPromise = criteria
-                ? ZOHO.CRM.API.searchRecord({ Entity: module, Type: "criteria", Query: criteria, page: page, per_page: 200 })
-                : ZOHO.CRM.API.getAllRecords({ Entity: module, sort_order: "asc", page: page, per_page: 200 });
-
-            searchPromise
-                .then(function(response) {
-
-                    if (response && response.data) allRecords = allRecords.concat(response.data);
-
-                    if (response && response.info && response.info.more_records === true && page < 150) {
-                        page++;
-                        fetchPage();
-                    } else {
-                        resolve(allRecords);
-                    }
-                })
-                .catch(function(err) {
-                    console.error(module + " fetch stopped on page " + page + ":", err);
-                    resolve(allRecords);
-                });
-        }
-
-        fetchPage();
-    });
-}
-
-
-function ddLookupId(value) {
-    if (value && typeof value === "object") return String(value.id || "");
-    return String(value || "");
-}
-
-
-function ddLookupName(value, fallback) {
-    if (value && typeof value === "object") return value.name || (fallback || "Unassigned");
-    return fallback || "Unassigned";
-}
-
-
-function ddParseDate(value) {
-    if (!value) return null;
-    var d = new Date(value);
-    return isNaN(d.getTime()) ? null : d;
-}
-
-
-function ddFiscalQuarter(date) {
-    if (!date) return null;
-    var month = date.getMonth() + 1;
-    if (month >= 4 && month <= 6) return "Q1";
-    if (month >= 7 && month <= 9) return "Q2";
-    if (month >= 10 && month <= 12) return "Q3";
-    return "Q4";
-}
-
-
-function attachDrilldownHandlers(ownerId, ownerName) {
-
-    // Scoped to #content so the Account Owner Summary keeps its own handlers
-    document.querySelectorAll("#content .clickable").forEach(function(el) {
-        el.onclick = function() {
-            var category = el.getAttribute("data-cat");
-            if (category) openDrilldown(ownerId || null, ownerName, category);
-        };
-    });
-}
-
-
-function categoryLabel(category) {
-
-    var labels = {
-        "achieved": "Achieved (Closed Won)",
-        "payment_received": "Payment Received",
-        "payment_pending": "Payment Pending",
-        "current_pipeline": "Current Pipeline",
-        "total_accounts": "Total Accounts",
-        "untouched": "Untouched Accounts",
-        "touched": "Touched Accounts"
-    };
-
-    if (labels[category]) return labels[category];
-
-    var parts = category.split(":");
-
-    if (parts[0] === "bucket") return decodeURIComponent(parts[1]) + " - " + parts[2].replace(/_/g, " ");
-    if (parts[0] === "qp") return decodeURIComponent(parts[1]) + " - " + decodeURIComponent(parts[2]) + " Expected Business";
-    if (parts[0] === "quarter_pipeline") return decodeURIComponent(parts[1]) + " Current Pipeline";
-    if (parts[0] === "stage") return decodeURIComponent(parts[1]);
-    if (parts[0] === "aor") return parts.slice(1).join(" ").replace(/_/g, " ") + " (Account Owner Summary)";
-
-    return category;
-}
-
-
-function openDrilldown(ownerId, ownerName, category) {
-
-    var modal = document.getElementById("drilldownModal");
-    var title = document.getElementById("drilldownTitle");
-    var body = document.getElementById("drilldownBody");
-
-    title.innerText = (ownerName || "All Owners") + " - " + categoryLabel(category);
-    body.innerHTML = "Loading...";
-    modal.classList.add("open");
-
-    runDrilldown(ownerId, ownerName, category)
-
-        .then(function(names) {
-
-            if (!names || names.length === 0) {
-                body.innerHTML = '<div class="modal-empty">No matching records found.</div>';
-                return;
-            }
-
-            var html = '<div class="modal-count">' + names.length + (names.length === 1 ? ' account' : ' accounts') + '</div><ul>';
-            names.forEach(function(name) { html += "<li>" + escapeHtml(name) + "</li>"; });
-            html += "</ul>";
-            body.innerHTML = html;
-        })
-
-        .catch(function(err) {
-            body.innerHTML = '<div class="modal-empty">Failed to load records.</div>';
-            console.error("Drilldown error:", err);
-        });
-}
-
-
-function closeDrilldown() {
-    document.getElementById("drilldownModal").classList.remove("open");
-}
-
-
-function sortNames(names) {
-    return names.sort(function(a, b) { return String(a).toLowerCase().localeCompare(String(b).toLowerCase()); });
-}
-
-
-async function runDrilldown(ownerId, ownerName, category) {
-
-    if (category.indexOf("aor:") === 0) return runDrilldownAOR(ownerId, category);
-
-    var data = await loadLiveData();
-    var parts = category.split(":");
-    var kind = parts[0];
-
-    // ---- Deal-based: cards, Quarter x Plan table, stage funnel ----
-
-    if (CARD_CATEGORIES.indexOf(category) !== -1 || kind === "qp" || kind === "quarter_pipeline" || kind === "stage") {
-
-        var selectedQuarter = document.getElementById("quarterFilter").value || "All Quarters";
-        var gistOwnerName = document.getElementById("gistOwnerFilter").value || GIST_ACCOUNT_OWNER_DEFAULT;
-        var unique = {};
-
-        data.deals.forEach(function(deal) {
-
-            var ctx = dealContext(deal, data, selectedQuarter, gistOwnerName);
-            if (!ctx) return;
-
-            var ok = false;
-
-            if (CARD_CATEGORIES.indexOf(category) !== -1) {
-                ok = matchesCardCategory(ctx, category, ownerId);
-            } else if (matchesAccountOwner(ctx, ownerId)) {
-                if (kind === "qp") {
-                    ok = ctx.quarter === decodeURIComponent(parts[1]) &&
-                        ctx.plan === decodeURIComponent(parts[2]) && countsAsExpected(ctx);
-                } else if (kind === "quarter_pipeline") {
-                    ok = ctx.quarter === decodeURIComponent(parts[1]) && isCurrentPipelineStage(ctx.stage);
-                } else if (kind === "stage") {
-                    ok = ctx.stage === decodeURIComponent(parts[1]);
-                }
-            }
-
-            if (ok) unique[ctx.accId] = ctx.accName;
-        });
-
-        return sortNames(Object.values(unique));
-    }
-
-    // ---- Account-based: total / touched / untouched / bucket cells ----
-
-    var accountById = {};
-    Object.keys(data.accountsById).forEach(function(id) {
-        var a = data.accountsById[id];
-        if (!ownerId || a.ownerId === ownerId) accountById[id] = a;
-    });
-
-    if (category === "total_accounts") {
-        return sortNames(Object.values(accountById).map(function(a) { return a.name; }));
-    }
-
-    var calls = await zohoSearchAll("Calls", ownerId ? "(Owner:equals:" + ownerId + ")" : null);
-    var latestCallByAccount = {};
-
-    calls.forEach(function(call) {
-
-        var whatId = ddLookupId(call.What_Id);
-        var account = accountById[whatId];
-        if (!account) return;
-
-        var callOwnerId = ddLookupId(call.Owner);
-        if (!callOwnerId || callOwnerId !== account.ownerId) return;
-
-        var callDate = ddParseDate(call.Call_Start_Time);
-        if (!callDate) return;
-
-        if (!latestCallByAccount[whatId] || callDate > latestCallByAccount[whatId]) {
-            latestCallByAccount[whatId] = callDate;
-        }
-    });
-
-    var now = new Date();
-    var matches = [];
-
-    Object.keys(accountById).forEach(function(accId) {
-
-        var account = accountById[accId];
-        var lastCall = latestCallByAccount[accId];
-        var agingBucket = null;
-
-        if (lastCall) {
-            var daysOld = (now - lastCall) / 86400000;
-            if (daysOld <= 30) agingBucket = "last_30";
-            else if (daysOld <= 60) agingBucket = "days_31_60";
-            else agingBucket = "days_60_plus";
-        }
-
-        var isMatch = false;
-
-        if (category === "untouched") {
-            isMatch = !lastCall;
-        } else if (category === "touched") {
-            isMatch = !!lastCall;
-        } else if (kind === "bucket") {
-            var bucketName = decodeURIComponent(parts[1]);
-            var bucketCategory = parts[2];
-            if (account.bucket === bucketName) {
-                if (bucketCategory === "Total") isMatch = true;
-                else if (bucketCategory === "non_touched") isMatch = !lastCall;
-                else isMatch = (agingBucket === bucketCategory);
-            }
-        }
-
-        if (isMatch) matches.push(account.name);
-    });
-
-    return sortNames(matches);
-}
-
-
-/* =========================================================
-   ACCOUNT OWNER SUMMARY (from account_owner_report_reader)
-   Columns: Total, Last 30, 31-60, 60+, Touched, Non-Touched,
-   Closed Won, Closed Lost
-   ========================================================= */
-
-function loadAccountOwnerSummary() {
-
-    var container = document.getElementById("accountOwnerSummarySection");
-
-    ZOHO.CRM.FUNCTIONS.execute("account_owner_report_reader", { "arguments": JSON.stringify({}) })
-
-        .then(function(response) {
-
-            var data = findPayload(response);
-
-            if (!data || !Array.isArray(data.owners)) {
-                container.innerHTML = '<div class="error">Could not load Account Owner Summary.</div>';
-                return;
-            }
-
-            lastAccountOwnerSummaryData = data;
-            updateAccountOwnerSummaryDisplay();
-        })
-
-        .catch(function() {
-            container.innerHTML = '<div class="error">Unable to load Account Owner Summary.</div>';
-        });
-}
-
-
-function renderAccountOwnerSummary(data, selectedOwner) {
-
-    var container = document.getElementById("accountOwnerSummarySection");
-
-    var allOwners = data.owners || [];
-    var isFiltered = selectedOwner && selectedOwner !== "All Owners";
-
-    var visibleOwners = isFiltered
-        ? allOwners.filter(function(o) { return o.owner_name === selectedOwner; })
-        : allOwners;
-
-    if (isFiltered && visibleOwners.length === 0) {
-        container.innerHTML = '<div class="loading">No Account Owner Summary data for ' + escapeHtml(selectedOwner) + '.</div>';
-        return;
-    }
-
-    function cell(count, ownerId, category) {
-        count = count || 0;
-        if (count > 0 && ownerId) {
-            return '<td class="clickable plain" data-owner-id="' + escapeHtml(ownerId) + '" data-cat="' +
-                escapeHtml(category) + '">' + count + '</td>';
-        }
-        return '<td>' + count + '</td>';
-    }
-
-    function wonLost(deals) {
-        var result = { closed_won: 0, closed_lost: 0 };
-        var stages = (deals && deals.stages) || {};
-
-        Object.keys(stages).forEach(function(stage) {
-            var count = Number(stages[stage] || 0);
-            if (isClosedWonStage(stage)) result.closed_won += count;
-            else if (String(stage).trim() === CLOSED_LOST_STAGE) result.closed_lost += count;
-        });
-
-        if (deals && typeof deals.closed_won === "number") result.closed_won = deals.closed_won;
-        if (deals && typeof deals.closed_lost === "number") result.closed_lost = deals.closed_lost;
-        return result;
-    }
-
-    var html = '<div class="table-scroll"><table><thead><tr>';
-    html += '<th style="text-align:left;">Account Owner</th><th>Total</th><th>Last 30</th>';
-    html += '<th>31-60</th><th>60+</th><th>Touched</th><th>Non-Touched</th>';
-    html += '<th>Closed Won</th><th>Closed Lost</th>';
-    html += '</tr></thead><tbody>';
-
-    var grand = { total_accounts: 0, last_30: 0, days_31_60: 0, days_60_plus: 0, touched: 0, non_touched: 0, closed_won: 0, closed_lost: 0 };
-
-    visibleOwners.forEach(function(owner) {
-
-        var wl = wonLost(owner.deals_fy);
-        var ownerId = owner.owner_id;
-
-        html += '<tr>';
-        html += '<td class="row-label">' + escapeHtml(owner.owner_name) + '</td>';
-        html += cell(owner.total_accounts, ownerId, "aor:total");
-        html += cell(owner.last_30, ownerId, "aor:last_30");
-        html += cell(owner.days_31_60, ownerId, "aor:days_31_60");
-        html += cell(owner.days_60_plus, ownerId, "aor:days_60_plus");
-        html += cell(owner.touched, ownerId, "aor:touched");
-        html += cell(owner.non_touched, ownerId, "aor:non_touched");
-        html += cell(wl.closed_won, ownerId, "aor:closed_won");
-        html += cell(wl.closed_lost, ownerId, "aor:closed_lost");
-        html += '</tr>';
-
-        ["total_accounts", "last_30", "days_31_60", "days_60_plus", "touched", "non_touched"].forEach(function(key) {
-            grand[key] += Number(owner[key] || 0);
-        });
-        grand.closed_won += wl.closed_won;
-        grand.closed_lost += wl.closed_lost;
-    });
-
-    if (!isFiltered) {
-        html += '<tr class="grand-total"><td class="row-label">Grand Total</td>';
-        html += '<td>' + grand.total_accounts + '</td><td>' + grand.last_30 + '</td>';
-        html += '<td>' + grand.days_31_60 + '</td><td>' + grand.days_60_plus + '</td>';
-        html += '<td>' + grand.touched + '</td><td>' + grand.non_touched + '</td>';
-        html += '<td>' + grand.closed_won + '</td><td>' + grand.closed_lost + '</td>';
-        html += '</tr>';
-    }
-
-    html += '</tbody></table></div>';
-
-    container.innerHTML = html;
-
-    container.querySelectorAll(".clickable").forEach(function(el) {
-        el.onclick = function() {
-            var row = el.closest("tr");
-            var ownerName = row ? row.querySelector("td.row-label").innerText : "";
-            openDrilldown(el.getAttribute("data-owner-id"), ownerName, el.getAttribute("data-cat"));
-        };
-    });
-}
-
-
-async function runDrilldownAOR(ownerId, category) {
-
-    if (!ownerId) return [];
-
-    var innerCategory = category.substring(4);
-
-    var accounts = await zohoSearchAll("Accounts", "(Owner:equals:" + ownerId + ")");
-
-    var accountById = {};
-    accounts.forEach(function(a) {
-        if (a.id) accountById[String(a.id)] = { name: a.Account_Name || "" };
-    });
-
-    var accountIds = Object.keys(accountById);
-    if (accountIds.length === 0) return [];
-
-    if (innerCategory === "total") {
-        return sortNames(Object.values(accountById).map(function(a) { return a.name; }));
-    }
-
-    var calls = await zohoSearchAll("Calls", "(Owner:equals:" + ownerId + ")");
-    var latestCallByAccount = {};
-
-    calls.forEach(function(call) {
-        var whatId = ddLookupId(call.What_Id);
-        if (!whatId || !accountById[whatId]) return;
-        var callDate = ddParseDate(call.Call_Start_Time);
-        if (!callDate) return;
-        if (!latestCallByAccount[whatId] || callDate > latestCallByAccount[whatId]) {
-            latestCallByAccount[whatId] = callDate;
-        }
-    });
-
-    var needsDeals = innerCategory === "closed_won" || innerCategory === "closed_lost";
-    var latestDealByAccount = {};
-
-    if (needsDeals) {
-
-        var batchSize = 10;
-
-        for (var i = 0; i < accountIds.length; i += batchSize) {
-
-            var batch = accountIds.slice(i, i + batchSize);
-            var orCriteria = "(" + batch.map(function(id) { return "(Account_Name:equals:" + id + ")"; }).join("or") + ")";
-
-            var deals = await zohoSearchAll("Deals", orCriteria);
-
-            deals.forEach(function(deal) {
-                var accId = ddLookupId(deal.Account_Name);
-                if (!accId || !accountById[accId]) return;
-                var dealDate = ddParseDate(deal.Modified_Time) || ddParseDate(deal.Created_Time);
-                if (!dealDate) return;
-                var existing = latestDealByAccount[accId];
-                if (!existing || dealDate > existing.date) {
-                    latestDealByAccount[accId] = { date: dealDate, stage: deal.Stage || "Unknown" };
-                }
-            });
-        }
-    }
-
-    var now = new Date();
-    var matches = [];
-
-    accountIds.forEach(function(accId) {
-
-        var lastCall = latestCallByAccount[accId];
-        var lastDeal = latestDealByAccount[accId];
-        var agingBucket = null;
-
-        if (lastCall) {
-            var daysOld = (now - lastCall) / 86400000;
-            if (daysOld <= 30) agingBucket = "last_30";
-            else if (daysOld <= 60) agingBucket = "days_31_60";
-            else agingBucket = "days_60_plus";
-        }
-
-        var isMatch = false;
-
-        if (innerCategory === "touched") isMatch = !!lastCall;
-        else if (innerCategory === "non_touched") isMatch = !lastCall;
-        else if (["last_30", "days_31_60", "days_60_plus"].indexOf(innerCategory) !== -1) isMatch = (agingBucket === innerCategory);
-        else if (innerCategory === "closed_won") isMatch = !!lastDeal && isClosedWonStage(lastDeal.stage);
-        else if (innerCategory === "closed_lost") isMatch = !!lastDeal && lastDeal.stage === CLOSED_LOST_STAGE;
-
-        if (isMatch) matches.push(accountById[accId].name);
-    });
-
-    return sortNames(matches);
-}
-
-
-function escapeHtml(value) {
-    if (value === undefined || value === null) return "";
-    return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
-
-</script>
-
 </body>
 </html>
