@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="claude:viewport-fit-sides" content="cover">
-<title>Net Growth</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Net Growth - Board Dashboard</title>
+
+<script src="https://live.zwidgets.com/js-sdk/1.2/ZohoEmbededAppSDK.min.js"></script>
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
+
 <style>
-/* Layout: one equation at the top — new business won minus renewal lost — then the two
+/* One equation at the top - new business won minus revenue lost at renewal - then the two
    halves of it, then where it came from. Sized for a projector: few numbers, large type. */
 :root {
   --bg: #eceff2;
@@ -30,9 +33,6 @@
   --track: #dfe5ea;
 
   color-scheme: light;
-  box-sizing: border-box;
-  padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 * { box-sizing: border-box; }
 body {
@@ -40,28 +40,28 @@ body {
   font-family: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 15px; line-height: 1.45;
 }
-.wrap {
-  max-width: 1280px; margin: 0 auto;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 24px 48px;
-}
+.wrap { max-width: 1300px; margin: 0 auto; padding: 24px 16px 56px; }
 
-.top { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-end; margin-bottom: 16px; }
-h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+.top { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
+h1 { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
 .sub { color: var(--muted); margin-top: 2px; }
-.filters { display: flex; gap: 10px; flex-wrap: wrap; }
+.filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
 .filters label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
 select, button.act {
   font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line);
-  border-radius: 6px; padding: 8px 10px; min-width: 150px; text-align: left;
+  border-radius: 6px; padding: 8px 10px; min-width: 165px; text-align: left;
 }
-select { padding-right: 28px; }
+select { padding-right: 28px; max-width: 240px; }
 button.act { min-width: 0; cursor: pointer; }
 button.act:hover { border-color: var(--accent); color: var(--accent); }
+button.act:disabled { opacity: 0.6; cursor: default; }
 select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.sample { background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 16px; }
+.stamp { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+.note { background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 10px 14px; font-size: 12.5px; margin-bottom: 16px; }
+.note.warn { background: var(--open-soft); color: #8a5a06; }
+.note.err { background: var(--loss-soft); color: var(--loss); }
+.note.hidden { display: none; }
 
 .grid { display: grid; gap: 16px; grid-template-columns: repeat(12, 1fr); }
 .full { grid-column: 1 / -1; }
@@ -69,6 +69,7 @@ select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); o
 .two-third { grid-column: span 8; }
 .third { grid-column: span 4; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px 22px; min-width: 0; }
+.panel.hidden { display: none; }
 .panel h2 { margin: 0 0 16px; font-size: 15px; font-weight: 600; }
 .panel h2 small { font-weight: 400; color: var(--muted); margin-left: 6px; }
 
@@ -92,6 +93,7 @@ select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); o
 .figs { display: flex; gap: 32px; flex-wrap: wrap; }
 .figs > div > span { display: block; color: var(--muted); font-size: 12.5px; }
 .big { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.figs .big span, .term .fig span { font-size: inherit; font-weight: inherit; letter-spacing: inherit; color: inherit; display: inline; }
 
 .stack { display: flex; height: 20px; border-radius: 6px; overflow: hidden; background: var(--track); margin-top: 16px; }
 .stack i { display: block; height: 100%; }
@@ -107,9 +109,8 @@ select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); o
 .pill.warn { background: var(--open-soft); color: var(--open); }
 .pill.bad { background: var(--loss-soft); color: var(--loss); }
 
-/* quarter columns: gains above the line, losses below */
+/* quarter columns: gains above the line, losses below, one scale on both sides */
 .qchart { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 18px; }
-/* one scale on both sides of the zero line: 3.6px per lakh */
 .qcol { display: grid; grid-template-rows: 110px 1px 96px auto; min-width: 0; }
 .qcol .up { display: flex; flex-direction: column; justify-content: flex-end; }
 .qcol .up i { display: block; background: var(--gain); border-radius: 4px 4px 0 0; }
@@ -132,7 +133,31 @@ tfoot td, tfoot th { font-weight: 700; border-bottom: 0; border-top: 2px solid v
 .gainc { color: var(--gain); }
 .lossc { color: var(--loss); }
 .openc { color: var(--open); }
+.mutedc { color: var(--muted); }
 .hint { margin: 14px 0 0; color: var(--muted); font-size: 12.5px; }
+.foot-note { margin-top: 20px; color: var(--muted); font-size: 12.5px; }
+
+/* every figure is clickable */
+.click { cursor: pointer; border-bottom: 1px dashed currentColor; }
+.click:hover { opacity: 0.75; }
+
+/* popup - absolute, not fixed, because the widget sits in a very tall iframe */
+.modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; background: rgba(10,20,30,0.35); z-index: 100; }
+.modal-overlay.open { display: block; }
+.modal-box { position: absolute; left: 50%; transform: translateX(-50%); background: var(--panel);
+  border-radius: 10px; width: 96%; max-width: 1100px; max-height: 620px; display: flex; flex-direction: column;
+  box-shadow: 0 18px 48px rgba(10,20,30,0.28); }
+.modal-head { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.modal-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.modal-close { background: none; border: 0; font-size: 22px; line-height: 1; cursor: pointer; color: var(--muted); }
+.modal-body { padding: 12px 18px 18px; overflow-y: auto; }
+.modal-sum { font-size: 12.5px; color: var(--muted); margin-bottom: 10px; }
+.modal-sum b { color: var(--ink); }
+.modal-body table { font-size: 13px; }
+.modal-body th, .modal-body td { padding: 7px 8px; }
+.empty { color: var(--muted); font-size: 13px; padding: 12px 0; }
+
+.loading { padding: 40px 0; text-align: center; color: var(--muted); }
 
 @media (max-width: 1000px) {
   .eq { grid-template-columns: 1fr; }
@@ -152,181 +177,1562 @@ tfoot td, tfoot th { font-weight: 700; border-bottom: 0; border-top: 2px solid v
 </style>
 </head>
 <body>
+
 <div class="wrap">
 
   <header class="top">
     <div>
       <h1>Net Growth</h1>
-      <div class="sub">New business won, less revenue lost at renewal &middot; FY 2026-27</div>
+      <div class="sub" id="subTitle">New business won, less revenue lost at renewal</div>
     </div>
     <div class="filters">
       <label>Deal type
-        <select><option>New + Renewal</option><option>New business only</option><option>Renewal only</option></select>
+        <select id="dealTypeFilter" onchange="onFilterChange()"></select>
       </label>
       <label>Quarter
-        <select><option>FY 2026-27 (full year)</option><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option></select>
+        <select id="quarterFilter" onchange="onFilterChange()"></select>
       </label>
       <label>Owner
-        <select>
-          <option>Company total</option>
-          <option>Sales team (4 owners)</option>
-          <option>Outside sales team</option>
-          <optgroup label="New business owners">
-            <option>Anurag Mishra</option>
-            <option>Tejal Pandya</option>
-            <option>Ashish Kumar</option>
-            <option>GIST HQ</option>
-          </optgroup>
-          <optgroup label="Renewal / CSM owners">
-            <option disabled>&mdash; read live from CRM &mdash;</option>
-          </optgroup>
-          <optgroup label="Other owners">
-            <option disabled>&mdash; read live from CRM &mdash;</option>
-          </optgroup>
-        </select>
+        <select id="ownerFilter" onchange="onFilterChange()"></select>
       </label>
-      <label>&nbsp;<button class="act" type="button">Refresh</button></label>
+      <label>&nbsp;<button class="act" id="refreshButton" onclick="loadReport()">Refresh</button></label>
     </div>
   </header>
 
-  <div class="sample">Layout for review. Renewal figures are the real ones from your Zoho renewal dashboard; targets are from your target sheet. New business won is a placeholder until I read it from CRM, so the net growth figure will move. The owner filter lists every owner in CRM &mdash; new-business owners, renewal/CSM owners and anyone else &mdash; grouped so the board can pick a person or a scope; only the four new-business owners have a target, so for everyone else the target column reads &ldquo;no target&rdquo;.</div>
+  <div class="stamp" id="lastUpdated">Loading from Zoho CRM...</div>
 
-  <main class="grid">
+  <div class="note err hidden" id="errorNote"></div>
+  <div class="note warn hidden" id="warnNote"></div>
 
-    <!-- the board's question, as one equation -->
-    <section class="panel full">
-      <h2>Where the business actually moved <small>a renewal that renews holds revenue flat, so only these two change the total</small></h2>
-      <div class="eq">
-        <div class="term gain">
-          <div class="lab">New business won</div>
-          <div class="fig">+60.4 L</div>
-          <div class="foot">17% of a 365.00 L target</div>
-        </div>
-        <div class="op">&minus;</div>
-        <div class="term loss">
-          <div class="lab">Revenue lost at renewal</div>
-          <div class="fig">&minus;36.9 L</div>
-          <div class="foot">22 accounts did not renew</div>
-        </div>
-        <div class="op">=</div>
-        <div class="term net">
-          <div class="lab">Net growth this year</div>
-          <div class="fig">+23.5 L</div>
-          <div class="foot">Every 1.00 L of new business is carrying 0.61 L of churn</div>
-        </div>
-      </div>
-    </section>
+  <div id="content">
+    <div class="loading">Reading Deals and Accounts from CRM...</div>
+  </div>
 
-    <!-- the two halves -->
-    <section class="panel half">
-      <h2>New business <small>against target</small></h2>
-      <div class="figs">
-        <div><span>Won</span><div class="big gainc">60.4 L</div></div>
-        <div><span>Target</span><div class="big">365.0 L</div></div>
-        <div><span>Achievement</span><div class="big">17%</div></div>
-        <div><span>Still in pipeline</span><div class="big openc">421.4 L</div></div>
-      </div>
-      <div class="stack" role="img" aria-label="60.4 lakh won of a 365 lakh target">
-        <i class="fill-gain" style="width:16.5%"></i>
-      </div>
-      <div class="key">
-        <span><i class="fill-gain"></i>Won <b>60.4 L</b></span>
-        <span>Target <b>365.0 L</b> &middot; India 205.0 L, International 160.0 L</span>
-      </div>
-      <p class="hint">Halfway through the year, so the pace figure for 17% achieved is roughly 50% of target.</p>
-    </section>
-
-    <section class="panel half">
-      <h2>Renewals <small>against the book due this year</small></h2>
-      <div class="figs">
-        <div><span>Retained</span><div class="big gainc">235.4 L</div></div>
-        <div><span>Lost</span><div class="big lossc">36.9 L</div></div>
-        <div><span>Still open</span><div class="big openc">512.9 L</div></div>
-        <div><span>Retention</span><div class="big">86%</div></div>
-      </div>
-      <div class="stack" role="img" aria-label="Of a 785.1 lakh renewal book: 235.4 lakh retained, 36.9 lakh lost, 512.9 lakh still open">
-        <i class="fill-gain" style="width:30.0%"></i>
-        <i class="fill-loss" style="width:4.7%"></i>
-        <i class="fill-open" style="width:65.3%"></i>
-      </div>
-      <div class="key">
-        <span><i class="fill-gain"></i>Retained <b>235.4 L</b></span>
-        <span><i class="fill-loss"></i>Lost <b>36.9 L</b></span>
-        <span><i class="fill-open"></i>Open <b>512.9 L</b></span>
-      </div>
-      <p class="hint">Book due this year 785.1 L. Retention is what was kept out of everything decided so far; 512.9 L has not come up for renewal yet.</p>
-    </section>
-
-    <!-- quarter trend -->
-    <section class="panel two-third">
-      <h2>Net growth by quarter <small>new business above the line, renewal losses below</small></h2>
-      <div class="qchart">
-        <div class="qcol">
-          <div class="up"><div class="cap up">+24.5</div><i style="height:88px"></i></div>
-          <div class="zero"></div>
-          <div class="down"><i style="height:75px"></i><div class="cap dn">&minus;20.8</div></div>
-          <div class="lbl">Q1<b>+3.7 L</b></div>
-        </div>
-        <div class="qcol">
-          <div class="up"><div class="cap up">+21.3</div><i style="height:77px"></i></div>
-          <div class="zero"></div>
-          <div class="down"><i style="height:58px"></i><div class="cap dn">&minus;16.1</div></div>
-          <div class="lbl">Q2<b>+5.2 L</b></div>
-        </div>
-        <div class="qcol">
-          <div class="up"><div class="cap up">+14.6</div><i style="height:53px"></i></div>
-          <div class="zero"></div>
-          <div class="down"><i style="height:0"></i><div class="cap dn">0.0</div></div>
-          <div class="lbl now">Q3 &middot; current<b>+14.6 L</b></div>
-        </div>
-        <div class="qcol">
-          <div class="up"><div class="cap up">0.0</div><i style="height:0"></i></div>
-          <div class="zero"></div>
-          <div class="down"><i style="height:0"></i><div class="cap dn">0.0</div></div>
-          <div class="lbl">Q4<b>0.0 L</b></div>
-        </div>
-      </div>
-      <p class="hint">Q1 and Q2 each grew by only a few lakh because almost everything sold was cancelled out by churn. Q3 looks stronger mainly because no renewal has been lost in it yet, not because more was sold.</p>
-    </section>
-
-    <section class="panel third">
-      <h2>India and International</h2>
-      <div class="scroll">
-        <table>
-          <thead><tr><th>&nbsp;</th><th>New won</th><th>Renewal lost</th><th>Net</th></tr></thead>
-          <tbody>
-            <tr><th scope="row">India</th><td class="gainc">42.3 L</td><td class="lossc">36.1 L</td><td><strong>+6.2 L</strong></td></tr>
-            <tr><th scope="row">International</th><td class="gainc">18.1 L</td><td class="lossc">0.8 L</td><td><strong>+17.3 L</strong></td></tr>
-          </tbody>
-          <tfoot><tr><th scope="row">Total</th><td class="gainc">60.4 L</td><td class="lossc">36.9 L</td><td>+23.5 L</td></tr></tfoot>
-        </table>
-      </div>
-      <p class="hint">International is producing nearly three quarters of the net growth from a quarter of the new business, because almost nothing is churning there.</p>
-    </section>
-
-    <!-- teams -->
-    <section class="panel full">
-      <h2>New business by team <small>target, won and what is left to find</small></h2>
-      <div class="scroll">
-        <table>
-          <thead><tr><th>Team</th><th>Target</th><th>Won</th><th>Achievement</th><th>Gap to target</th></tr></thead>
-          <tbody>
-            <tr><th scope="row">International</th><td>160.0 L</td><td class="gainc">18.1 L</td><td><span class="pill bad">11%</span></td><td class="lossc">141.9 L</td></tr>
-            <tr><th scope="row">Karthik &amp; Vivekananda</th><td>50.0 L</td><td class="gainc">8.2 L</td><td><span class="pill bad">16%</span></td><td class="lossc">41.8 L</td></tr>
-            <tr><th scope="row">Anurag</th><td>45.0 L</td><td class="gainc">9.6 L</td><td><span class="pill bad">21%</span></td><td class="lossc">35.4 L</td></tr>
-            <tr><th scope="row">Girish, Ruchi &amp; Prasad</th><td>30.0 L</td><td class="gainc">6.4 L</td><td><span class="pill bad">21%</span></td><td class="lossc">23.6 L</td></tr>
-            <tr><th scope="row">Tejal</th><td>30.0 L</td><td class="gainc">5.8 L</td><td><span class="pill bad">19%</span></td><td class="lossc">24.2 L</td></tr>
-            <tr><th scope="row">Ashish</th><td>25.0 L</td><td class="gainc">8.2 L</td><td><span class="pill warn">33%</span></td><td class="lossc">16.8 L</td></tr>
-            <tr><th scope="row">Sharansh Gond</th><td>25.0 L</td><td class="gainc">4.1 L</td><td><span class="pill bad">16%</span></td><td class="lossc">20.9 L</td></tr>
-          </tbody>
-          <tfoot><tr><th scope="row">Total</th><td>365.0 L</td><td class="gainc">60.4 L</td><td><span class="pill bad">17%</span></td><td class="lossc">304.6 L</td></tr></tfoot>
-        </table>
-      </div>
-    </section>
-
-  </main>
-
-  <p class="hint">New business won counts Closed Won deals of Deal Type New with an actual order date in the period. Revenue lost at renewal counts Renewal deals marked Closed Lost. A renewal that renews is not counted as growth, because it holds revenue where it already was. International amounts are converted at 95 per USD. Changing the deal type filter to New or Renewal shows only that half of the page.</p>
+  <p class="foot-note" id="footNote"></p>
 </div>
+
+<div class="modal-overlay" id="drillModal" onclick="if (event.target === this) closeDrill()">
+  <div class="modal-box" id="drillBox">
+    <div class="modal-head">
+      <h3 id="drillTitle">Deals</h3>
+      <button class="modal-close" onclick="closeDrill()" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" id="drillBody"></div>
+  </div>
+</div>
+
+<script>
+
+/* =========================================================
+   CONFIGURATION
+   =========================================================
+   Board view: New business won  -  Revenue lost at renewal  =  Net growth
+
+   Every deal needs Deal Year = FY_FILTER and the date that matches its stage
+   inside the FY (1 Apr - 31 Mar). That date also decides the quarter:
+       Closed Won   -> Actual Order Date
+       Closed Lost  -> Closing Date
+       open stages  -> Expected Order Date
+   ========================================================= */
+
+var WIDGET_VERSION = "board v1";
+
+var FY_START_YEAR = 2026;
+var FY_FILTER = FY_START_YEAR + "-" + (FY_START_YEAR + 1);     // Deal Year (Year2) value
+
+/* Deal Type values. Anything that is neither of these is ignored on this page. */
+var NEW_DEAL_TYPE_VALUES = ["New", "New Business", "New Sales"];
+var RENEWAL_DEAL_TYPE_VALUES = ["Renewal", "Renewals", "Renewal Business", "Re-newal"];
+
+/* Field API names. Leave "" to auto-detect; the grey note at the foot shows what was picked. */
+var DEAL_FIELDS = {
+    amount: "",            // "Expected Business"
+    year: "",              // Year2
+    product: "",           // a field labelled "Product"
+    dealType: "",          // Type / a field labelled "Deal Type"
+    expectedOrderDate: "", // "Expected Order Date"
+    actualOrderDate: "",   // "Actual Order Date"
+    closingDate: ""        // "Closing Date"
+};
+var ACCOUNT_GIST_FIELD = "";    // Accounts: "Gist Account Owner"
+var ACCOUNT_REGION_FIELD = "";  // Accounts: "Billing Region"
+
+var AMOUNT_UNIT = "auto";       // "rupees", "lakh" or "auto"
+
+/* International accounts (Accounts > Billing Region) hold their amounts in USD */
+var INTERNATIONAL_REGION_VALUES = ["international"];
+var USD_TO_INR = 95;            // update when the rate changes
+
+var EXCLUDED_DEAL_NAME_WORDS = ["test", "trigya"];
+
+/* Stages */
+var CLOSED_WON_STAGES = ["Email Confirmation", "PI Sent - Order Received", "Payment Received",
+                         "Part Payment Received", "Short Payment", "Closed Won"];
+var CLOSED_LOST_STAGES = ["Closed Lost", "Approval for Close Lost"];
+var REMOVED_STAGES = ["Renewal Notice Sent", "Renewal Notice to be Sent"];
+
+/* The four account owners the new-business targets are built around */
+var ALLOWED_ACCOUNT_OWNERS = ["Anurag Mishra", "Tejal Pandya", "Ashish Kumar", "GIST HQ"];
+var GIST_HQ_OWNER_NAME = "GIST HQ";
+
+/* ---- New business targets (in lakh) ----
+ * owners: CRM account owners whose accounts belong to this row (exact name)
+ * gist:   words matched inside "Gist Account Owner" on GIST HQ accounts
+ * international: true -> the row for Billing Region = International accounts
+ */
+var SALES_TEAM_TARGETS = [
+    { team: "Karthik & Vivekananda",  gist: ["Karthik", "Vivekanand"],     fy: 50,  q: [8, 12, 15, 15] },
+    { team: "Girish, Ruchi & Prasad", gist: ["Girish", "Ruchi", "Prasad"], fy: 30,  q: [5, 7, 9, 9] },
+    { team: "Sharansh Gond",          gist: ["Sharansh"],                  fy: 25,  q: [4, 7, 7, 7] },
+    { team: "Anurag",                 owners: ["Anurag Mishra"],           fy: 45,  q: [2, 10.5, 13, 19.5] },
+    { team: "Tejal",                  owners: ["Tejal Pandya"],            fy: 30,  q: [2.5, 7, 9, 11.5] },
+    { team: "Ashish",                 owners: ["Ashish Kumar"],            fy: 25,  q: [2.5, 4.5, 7.5, 10.5] },
+    { team: "International",          international: true,                 fy: 160, q: [9.6, 32, 51.2, 67.2] }
+];
+
+/* true = an international account counts against the International row whoever owns it */
+var INTERNATIONAL_TEAM_FIRST = true;
+
+/* Owner filter entries */
+var OVERALL_VALUE = "__overall__";
+var SALES_TEAM_VALUE = "__sales__";
+var OTHERS_VALUE = "__others__";
+var OVERALL_LABEL = "Company total";
+var OTHERS_LABEL = "Outside sales team";
+var SALES_TEAM_LABEL = "Sales team (" + ALLOWED_ACCOUNT_OWNERS.length + " owners)";
+
+/* Deal type filter entries */
+var DT_BOTH = "both", DT_NEW = "new", DT_RENEWAL = "renewal";
+
+
+/* =========================================================
+   CONSTANTS / STATE
+   ========================================================= */
+
+var FY_LONG_LABEL = "FY " + FY_START_YEAR + "-" + String(FY_START_YEAR + 1).slice(2);
+var FY_START = new Date(FY_START_YEAR, 3, 1, 0, 0, 0, 0);
+var FY_END = new Date(FY_START_YEAR + 1, 2, 31, 23, 59, 59, 999);
+var QUARTERS = ["Q1", "Q2", "Q3", "Q4"];
+var QUARTER_INFO = {
+    Q1: { range: "1 Apr - 30 Jun " + FY_START_YEAR },
+    Q2: { range: "1 Jul - 30 Sep " + FY_START_YEAR },
+    Q3: { range: "1 Oct - 31 Dec " + FY_START_YEAR },
+    Q4: { range: "1 Jan - 31 Mar " + (FY_START_YEAR + 1) }
+};
+var ALL_QUARTERS = "All Quarters";
+
+var CLOSED_WON_KEYS = CLOSED_WON_STAGES.map(normStage);
+var CLOSED_LOST_KEYS = CLOSED_LOST_STAGES.map(normStage);
+var REMOVED_STAGE_KEYS = REMOVED_STAGES.map(normStage);
+
+var selectedOwner = OVERALL_VALUE;
+var selectedQuarter = ALL_QUARTERS;
+var selectedDealType = DT_BOTH;
+
+var liveDataPromise = null;
+var liveResolved = null;
+var fieldInfo = null;
+var amountUnitInUse = "rupees";
+var lastDrill = null;
+var lastClickY = 0;
+
+populateQuarterFilter();
+populateDealTypeFilter();
+populateOwnerFilter();
+
+document.addEventListener("click", function(event) { lastClickY = event.pageY || 0; }, true);
+
+ZOHO.embeddedApp.on("PageLoad", function() { loadReport(); });
+ZOHO.embeddedApp.init();
+
+
+function normStage(stage) {
+    return String(stage || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+
+/* =========================================================
+   FILTERS
+   ========================================================= */
+
+function populateQuarterFilter() {
+    var html = '<option value="' + ALL_QUARTERS + '">' + FY_LONG_LABEL + ' (full year)</option>';
+    QUARTERS.forEach(function(q) {
+        html += '<option value="' + q + '">' + q + ' (' + QUARTER_INFO[q].range + ')</option>';
+    });
+    document.getElementById("quarterFilter").innerHTML = html;
+}
+
+
+function populateDealTypeFilter() {
+    document.getElementById("dealTypeFilter").innerHTML =
+        '<option value="' + DT_BOTH + '">New + Renewal</option>' +
+        '<option value="' + DT_NEW + '">New business only</option>' +
+        '<option value="' + DT_RENEWAL + '">Renewal only</option>';
+}
+
+
+/*
+ * Every owner in CRM, grouped: the scopes first, then the four new-business
+ * owners, then everyone else - CSMs, renewal owners, anybody who owns a deal.
+ */
+function populateOwnerFilter() {
+
+    var select = document.getElementById("ownerFilter");
+
+    var html = '<option value="' + OVERALL_VALUE + '">' + OVERALL_LABEL + '</option>' +
+               '<option value="' + SALES_TEAM_VALUE + '">' + SALES_TEAM_LABEL + '</option>' +
+               '<option value="' + OTHERS_VALUE + '">' + OTHERS_LABEL + '</option>';
+
+    var known = {};
+    ALLOWED_ACCOUNT_OWNERS.forEach(function(n) { known[n.trim().toLowerCase()] = true; });
+
+    html += '<optgroup label="New business owners">';
+    ALLOWED_ACCOUNT_OWNERS.forEach(function(name) {
+        html += '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
+    });
+    html += '</optgroup>';
+
+    var others = [];
+    if (liveResolved) {
+        Object.keys(liveResolved.allOwners).forEach(function(id) {
+            var name = liveResolved.allOwners[id];
+            if (known[String(name).trim().toLowerCase()]) return;
+            if (others.indexOf(name) === -1) others.push(name);
+        });
+        others.sort(function(a, b) { return a.toLowerCase().localeCompare(b.toLowerCase()); });
+    }
+
+    if (others.length) {
+        html += '<optgroup label="Renewal / CSM and other owners">';
+        others.forEach(function(name) {
+            html += '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>';
+        });
+        html += '</optgroup>';
+    } else {
+        html += '<optgroup label="Renewal / CSM and other owners">' +
+                '<option disabled>loading from CRM...</option></optgroup>';
+    }
+
+    select.innerHTML = html;
+    select.value = selectedOwner;
+    if (select.value !== selectedOwner) { selectedOwner = OVERALL_VALUE; select.value = OVERALL_VALUE; }
+}
+
+
+function onFilterChange() {
+    selectedOwner = document.getElementById("ownerFilter").value || OVERALL_VALUE;
+    selectedQuarter = document.getElementById("quarterFilter").value || ALL_QUARTERS;
+    selectedDealType = document.getElementById("dealTypeFilter").value || DT_BOTH;
+    renderAll();
+}
+
+
+function ownerScopeMode() {
+    if (selectedOwner === OVERALL_VALUE) return "all";
+    if (selectedOwner === SALES_TEAM_VALUE) return "sales";
+    if (selectedOwner === OTHERS_VALUE) return "others";
+    return "list";
+}
+
+
+function ownerScopeLabel() {
+    var mode = ownerScopeMode();
+    if (mode === "all") return OVERALL_LABEL;
+    if (mode === "sales") return SALES_TEAM_LABEL;
+    if (mode === "others") return OTHERS_LABEL;
+    return selectedOwner;
+}
+
+
+function isAllowedOwnerName(name) {
+    var lower = String(name || "").trim().toLowerCase();
+    return ALLOWED_ACCOUNT_OWNERS.some(function(n) { return n.trim().toLowerCase() === lower; });
+}
+
+
+function isGistHqName(name) {
+    return String(name || "").trim().toLowerCase() === GIST_HQ_OWNER_NAME.toLowerCase();
+}
+
+
+function periodLabel() {
+    if (selectedQuarter === ALL_QUARTERS) return FY_LONG_LABEL;
+    return FY_LONG_LABEL + ", " + selectedQuarter + " (" + QUARTER_INFO[selectedQuarter].range + ")";
+}
+
+
+function currentFyQuarter() {
+    var today = new Date();
+    if (today < FY_START) return "Q1";
+    if (today > FY_END) return "Q4";
+    return monthQuarter(today);
+}
+
+
+/* How much of the FY (or of the selected quarter) has gone */
+function elapsedFraction() {
+    var now = new Date();
+    var start = FY_START, end = FY_END;
+    if (selectedQuarter !== ALL_QUARTERS) {
+        var i = QUARTERS.indexOf(selectedQuarter);
+        start = new Date(FY_START_YEAR + (i === 3 ? 1 : 0), [3, 6, 9, 0][i], 1);
+        end = new Date(FY_START_YEAR + (i === 3 ? 1 : 0), [6, 9, 12, 3][i], 0, 23, 59, 59);
+    }
+    if (now <= start) return 0;
+    if (now >= end) return 1;
+    return (now - start) / (end - start);
+}
+
+
+/* =========================================================
+   TARGETS
+   ========================================================= */
+
+function teamFyTarget(row) {
+    if (typeof row.fy === "number") return row.fy;
+    return (row.q || []).reduce(function(s, v) { return s + Number(v || 0); }, 0);
+}
+
+
+function teamTarget(row) {
+    if (selectedQuarter === ALL_QUARTERS) return teamFyTarget(row);
+    return Number((row.q || [])[QUARTERS.indexOf(selectedQuarter)] || 0);
+}
+
+
+function gistNameMatchesKeywords(name, keywords) {
+    var lower = String(name || "").toLowerCase();
+    return (keywords || []).some(function(k) { return k && lower.indexOf(String(k).trim().toLowerCase()) !== -1; });
+}
+
+
+function teamMatchesAccount(row, account) {
+    var owner = String(account.ownerName || "").trim().toLowerCase();
+    if ((row.owners || []).some(function(o) { return o.trim().toLowerCase() === owner; })) return true;
+    if (isGistHqName(account.ownerName) && (row.gist || []).length) {
+        return account.gistNames.some(function(n) { return gistNameMatchesKeywords(n, row.gist); });
+    }
+    return false;
+}
+
+
+function internationalTeamIndex() {
+    for (var i = 0; i < SALES_TEAM_TARGETS.length; i++) {
+        if (SALES_TEAM_TARGETS[i].international) return i;
+    }
+    return -1;
+}
+
+
+/*
+ * An international account belongs to the International row whoever owns it, so the
+ * 160 L international target is measured against international business and the
+ * 205 L India target against India business. Set INTERNATIONAL_TEAM_FIRST = false
+ * to let the account owner win instead.
+ */
+function assignTeam(account) {
+
+    if (INTERNATIONAL_TEAM_FIRST && account.isInternational) {
+        var intl = internationalTeamIndex();
+        if (intl >= 0) return intl;
+    }
+
+    for (var i = 0; i < SALES_TEAM_TARGETS.length; i++) {
+        if (SALES_TEAM_TARGETS[i].international) continue;
+        if (teamMatchesAccount(SALES_TEAM_TARGETS[i], account)) return i;
+    }
+
+    return account.isInternational ? internationalTeamIndex() : -1;
+}
+
+
+/* Which target rows belong to the owner scope on screen */
+function teamRowsInScope() {
+
+    var mode = ownerScopeMode();
+    var all = SALES_TEAM_TARGETS.map(function(row, index) { return { row: row, index: index }; });
+
+    if (mode === "all") return all;
+    if (mode === "others") return [];                                  // no target outside the sales team
+    if (mode === "sales") return all.filter(function(it) { return !it.row.international; });
+
+    var name = String(selectedOwner).trim().toLowerCase();
+
+    return all.filter(function(it) {
+        if (it.row.international) return false;
+        if ((it.row.owners || []).some(function(o) { return o.trim().toLowerCase() === name; })) return true;
+        // GIST HQ carries the three Gist teams
+        return isGistHqName(selectedOwner) && (it.row.gist || []).length > 0;
+    });
+}
+
+
+function scopedTarget() {
+    return teamRowsInScope().reduce(function(sum, it) { return sum + teamTarget(it.row); }, 0);
+}
+
+
+/* =========================================================
+   LOAD
+   ========================================================= */
+
+function loadReport() {
+
+    var button = document.getElementById("refreshButton");
+    button.disabled = true;
+    button.innerText = "Loading...";
+
+    liveDataPromise = null;
+    liveResolved = null;
+    document.getElementById("errorNote").className = "note err hidden";
+
+    loadLiveData()
+        .then(function() {
+            populateOwnerFilter();
+            renderAll();
+            var now = new Date();
+            document.getElementById("lastUpdated").innerText = "Last Updated: " +
+                now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) + " " +
+                now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) + "  |  " + WIDGET_VERSION;
+        })
+        .catch(function(err) {
+            console.error(err);
+            showError("Could not read from CRM: " + (err && err.message ? err.message : err));
+        })
+        .then(function() {
+            button.disabled = false;
+            button.innerText = "Refresh";
+        });
+}
+
+
+function showError(message) {
+    var note = document.getElementById("errorNote");
+    note.className = "note err";
+    note.innerText = message;
+}
+
+
+function loadLiveData() {
+
+    if (!liveDataPromise) {
+        liveDataPromise = Promise.all([
+            getFieldsSafe("Deals"),
+            getFieldsSafe("Accounts"),
+            zohoFetchAll("Deals"),
+            zohoFetchAll("Accounts")
+        ]).then(function(results) {
+            liveResolved = buildLiveData(results[0], results[1], results[2] || [], results[3] || []);
+            return liveResolved;
+        });
+        liveDataPromise.catch(function() { liveDataPromise = null; });
+    }
+
+    return liveDataPromise;
+}
+
+
+function zohoFetchAll(module) {
+
+    return new Promise(function(resolve) {
+
+        var allRecords = [];
+        var page = 1;
+
+        function fetchPage() {
+            ZOHO.CRM.API.getAllRecords({ Entity: module, sort_order: "asc", page: page, per_page: 200 })
+                .then(function(response) {
+                    if (response && response.data) allRecords = allRecords.concat(response.data);
+                    if (response && response.info && response.info.more_records === true && page < 150) {
+                        page++;
+                        fetchPage();
+                    } else {
+                        resolve(allRecords);
+                    }
+                })
+                .catch(function(err) {
+                    console.error(module + " fetch stopped on page " + page + ":", err);
+                    resolve(allRecords);
+                });
+        }
+
+        fetchPage();
+    });
+}
+
+
+function getFieldsSafe(entity) {
+    try {
+        if (!ZOHO.CRM.META || !ZOHO.CRM.META.getFields) return Promise.resolve([]);
+        return ZOHO.CRM.META.getFields({ Entity: entity })
+            .then(function(response) {
+                var fields = response && (response.fields || response.data);
+                return Array.isArray(fields) ? fields : [];
+            })
+            .catch(function() { return []; });
+    } catch (e) {
+        return Promise.resolve([]);
+    }
+}
+
+
+/* =========================================================
+   FIELD HELPERS
+   ========================================================= */
+
+function fieldValueList(value) {
+    if (value === undefined || value === null || value === "") return [];
+    if (Array.isArray(value)) {
+        var out = [];
+        value.forEach(function(v) { out = out.concat(fieldValueList(v)); });
+        return out;
+    }
+    if (typeof value === "object") {
+        var text = value.name || value.display_value || value.value || value.full_name || "";
+        return String(text).trim() ? [String(text).trim()] : [];
+    }
+    var s = String(value).trim();
+    return s ? [s] : [];
+}
+
+
+function fieldValueText(value) {
+    return fieldValueList(value).join(", ");
+}
+
+
+function parseNumber(value) {
+    if (value && typeof value === "object") value = value.value !== undefined ? value.value : value.amount;
+    if (value === undefined || value === null || value === "" || typeof value === "boolean") return 0;
+    var parsed = Number(String(value).replace(/,/g, "").replace(/[₹$\s]|Rs\.?|INR/gi, ""));
+    return isNaN(parsed) ? 0 : parsed;
+}
+
+
+function fieldOptions(meta, records) {
+
+    var options = [];
+    var seen = {};
+
+    (meta || []).forEach(function(f) {
+        if (!f || !f.api_name || seen[f.api_name]) return;
+        seen[f.api_name] = true;
+        options.push({ api: f.api_name, label: f.field_label || f.api_name, type: String(f.data_type || "").toLowerCase() });
+    });
+
+    (records || []).slice(0, 300).forEach(function(r) {
+        Object.keys(r || {}).forEach(function(k) {
+            if (seen[k]) return;
+            seen[k] = true;
+            options.push({ api: k, label: k, type: "" });
+        });
+    });
+
+    return options;
+}
+
+
+function optionText(o) {
+    return (o.label + " " + o.api.replace(/_/g, " ")).toLowerCase();
+}
+
+
+function describeField(api, options, found) {
+    for (var i = 0; i < options.length; i++) {
+        if (options[i].api === api) return { api: api, label: options[i].label, found: !!found };
+    }
+    return { api: api, label: api, found: !!found };
+}
+
+
+function pickByTiers(options, tiers, scoreFn) {
+    for (var t = 0; t < tiers.length; t++) {
+        var best = null, bestScore = 0;
+        options.forEach(function(o) {
+            if (!tiers[t](o)) return;
+            var score = scoreFn(o.api);
+            if (score > bestScore) { best = o; bestScore = score; }
+        });
+        if (best) return { api: best.api, label: best.label, found: true };
+    }
+    return null;
+}
+
+
+function countNonEmpty(records, api) {
+    var n = 0;
+    records.forEach(function(r) { if (fieldValueList(r[api]).length) n++; });
+    return n;
+}
+
+
+function countNonZero(records, api) {
+    var n = 0;
+    records.forEach(function(r) { if (parseNumber(r[api]) !== 0) n++; });
+    return n;
+}
+
+
+function countDealTypeMatches(records, api) {
+    var n = 0;
+    records.forEach(function(r) { if (dealTypeKindOf(r[api]) !== "other") n++; });
+    return n;
+}
+
+
+/* "new" / "renewal" / "other" from a Deal Type value */
+function dealTypeKindOf(value) {
+    var values = fieldValueList(value).map(function(v) { return v.trim().toLowerCase(); });
+    var isNew = NEW_DEAL_TYPE_VALUES.map(function(v) { return v.toLowerCase(); });
+    var isRen = RENEWAL_DEAL_TYPE_VALUES.map(function(v) { return v.toLowerCase(); });
+    if (values.some(function(v) { return isRen.indexOf(v) !== -1; })) return "renewal";
+    if (values.some(function(v) { return isNew.indexOf(v) !== -1; })) return "new";
+    // fall back on the word inside the value ("Renewal - Existing", "New - Direct")
+    if (values.some(function(v) { return /renew/.test(v); })) return "renewal";
+    if (values.some(function(v) { return /\bnew\b/.test(v); })) return "new";
+    return "other";
+}
+
+
+function chooseDateField(explicit, patterns, fallbackApi, options, deals) {
+    if (explicit) return describeField(explicit, options, true);
+    var tiers = patterns.map(function(re) { return function(o) { return re.test(optionText(o)); }; });
+    var picked = pickByTiers(options, tiers, function(api) { return countNonEmpty(deals, api); });
+    if (picked) return picked;
+    for (var i = 0; i < options.length; i++) {
+        if (patterns[0].test(optionText(options[i]))) return { api: options[i].api, label: options[i].label, found: true };
+    }
+    return describeField(fallbackApi, options, false);
+}
+
+
+function chooseYearField(options, deals) {
+    if (DEAL_FIELDS.year) return describeField(DEAL_FIELDS.year, options, true);
+    return pickByTiers(options, [
+        function(o) { return o.api === "Year2"; },
+        function(o) { return /\bdeal year\b|\bfiscal year\b|\bfinancial year\b|\bfy\b/.test(optionText(o)); },
+        function(o) { return /\byear\b/.test(optionText(o)) && o.type !== "date" && o.type !== "datetime"; }
+    ], function(api) { return countNonEmpty(deals, api); }) || describeField("Year2", options, false);
+}
+
+
+var NOT_AMOUNT_WORDS = /probab|percent|discount|tax|qty|quantity|days|score|phone|mobile|pin ?code|zip|year|count|rating|number of|no of|exchange rate|\bid\b/;
+
+function isAmountLike(o) {
+    var numericTypes = ["currency", "double", "integer", "bigint", "formula", "decimal", "long", ""];
+    return numericTypes.indexOf(o.type) !== -1 && !NOT_AMOUNT_WORDS.test(optionText(o));
+}
+
+
+function chooseAmountField(options, deals) {
+    if (DEAL_FIELDS.amount) return describeField(DEAL_FIELDS.amount, options, true);
+    var picked = pickByTiers(options, [
+        function(o) { return /expected ?business/.test(optionText(o)); }
+    ], function(api) { return countNonZero(deals, api); });
+    if (picked) return picked;
+    for (var i = 0; i < options.length; i++) {
+        if (/expected ?business/.test(optionText(options[i]))) return { api: options[i].api, label: options[i].label, found: true };
+    }
+    return pickByTiers(options, [
+        function(o) { return o.api === "Amount"; },
+        function(o) { return isAmountLike(o) && /business|lakh|amount|value|revenue/.test(optionText(o)); }
+    ], function(api) { return countNonZero(deals, api); }) || describeField("Amount", options, false);
+}
+
+
+function chooseProductField(options, deals) {
+    if (DEAL_FIELDS.product) return describeField(DEAL_FIELDS.product, options, true);
+    return pickByTiers(options, [
+        function(o) { return o.api === "Product" || o.api === "Product_Name"; },
+        function(o) { return /\bproducts?\b/.test(optionText(o)) && !/amount|price|qty|quantity|code|\bid\b/.test(optionText(o)); }
+    ], function(api) { return countNonEmpty(deals, api); }) || describeField("Product", options, false);
+}
+
+
+function chooseDealTypeField(options, deals) {
+    if (DEAL_FIELDS.dealType) return describeField(DEAL_FIELDS.dealType, options, true);
+    return pickByTiers(options, [
+        function(o) { return /deal ?type/.test(optionText(o)); },
+        function(o) { return o.api === "Type"; },
+        function(o) { return /\btype\b/.test(optionText(o)); }
+    ], function(api) { return countDealTypeMatches(deals, api); }) || describeField("Type", options, false);
+}
+
+
+function chooseGistField(options, accounts) {
+    if (ACCOUNT_GIST_FIELD) return describeField(ACCOUNT_GIST_FIELD, options, true);
+    return pickByTiers(options, [
+        function(o) { return /gist.*account.*owner/.test(optionText(o)); },
+        function(o) { return /gist.*owner/.test(optionText(o)); },
+        function(o) { return /gist/.test(optionText(o)) && !/bucket/.test(optionText(o)); }
+    ], function(api) { return countNonEmpty(accounts, api); }) || describeField("GIST_Account_Owner", options, false);
+}
+
+
+function decideAmountUnit(deals, api) {
+    if (AMOUNT_UNIT === "lakh" || AMOUNT_UNIT === "rupees") return AMOUNT_UNIT;
+    if (/lakh|\blac\b/i.test(fieldInfo.amount.label + " " + fieldInfo.amount.api)) return "lakh";
+    var values = [];
+    deals.forEach(function(d) {
+        var v = Math.abs(parseNumber(d[api]));
+        if (v) values.push(v);
+    });
+    if (!values.length) return "rupees";
+    values.sort(function(a, b) { return a - b; });
+    return values[Math.floor(values.length / 2)] < 1000 ? "lakh" : "rupees";
+}
+
+
+/* =========================================================
+   DATES AND STAGES
+   ========================================================= */
+
+function ddLookupId(value) {
+    if (value && typeof value === "object") return String(value.id || "");
+    return String(value || "");
+}
+
+
+function ddLookupName(value, fallback) {
+    if (value && typeof value === "object") return value.name || (fallback || "Unassigned");
+    return fallback || "Unassigned";
+}
+
+
+/* Date-only values ("2026-04-01") are read as local dates, so 1 April stays in Q1 */
+function ddParseDate(value) {
+    if (!value) return null;
+    var s = String(value).trim();
+    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    var d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+}
+
+
+function monthQuarter(date) {
+    if (!date) return null;
+    var month = date.getMonth() + 1;
+    if (month >= 4 && month <= 6) return "Q1";
+    if (month >= 7 && month <= 9) return "Q2";
+    if (month >= 10 && month <= 12) return "Q3";
+    return "Q4";
+}
+
+
+function isInFyWindow(date) {
+    return !!date && date >= FY_START && date <= FY_END;
+}
+
+
+function fyQuarterOf(value) {
+    var date = ddParseDate(value);
+    return isInFyWindow(date) ? monthQuarter(date) : null;
+}
+
+
+function isClosedWonStage(stage) { return CLOSED_WON_KEYS.indexOf(normStage(stage)) !== -1; }
+function isClosedLostStage(stage) { return CLOSED_LOST_KEYS.indexOf(normStage(stage)) !== -1; }
+function isRemovedStage(stage) { return REMOVED_STAGE_KEYS.indexOf(normStage(stage)) !== -1; }
+function isOpenStage(stage) { return !isClosedWonStage(stage) && !isClosedLostStage(stage) && !isRemovedStage(stage); }
+
+
+function dealFiscalYear(deal) {
+
+    var value = fieldValueText(deal ? deal[fieldInfo.year.api] : null);
+
+    if (value) {
+        value = value.replace(/^FY\s*/i, "").replace(/\s+/g, "");
+        var full = value.match(/^(\d{4})[-\/](\d{4})$/);
+        if (full) return full[1] + "-" + full[2];
+        var shortEnd = value.match(/^(\d{4})[-\/](\d{2})$/);
+        if (shortEnd) return shortEnd[1] + "-" + (Number(shortEnd[1]) + 1);
+        var bothShort = value.match(/^(\d{2})[-\/](\d{2})$/);
+        if (bothShort) return "20" + bothShort[1] + "-20" + bothShort[2];
+        return value;
+    }
+
+    var date = ddParseDate(deal && deal[fieldInfo.closingDate.api]);
+    if (!date) return "";
+    var year = date.getFullYear();
+    return (date.getMonth() >= 3) ? (year + "-" + (year + 1)) : ((year - 1) + "-" + year);
+}
+
+
+/* The date that matches the deal's stage, and what it is called */
+function stageDate(deal) {
+    if (isClosedWonStage(deal.Stage)) return { value: deal[fieldInfo.actualOrderDate.api], name: "Actual Order Date" };
+    if (isClosedLostStage(deal.Stage)) return { value: deal[fieldInfo.closingDate.api], name: "Closing Date" };
+    return { value: deal[fieldInfo.expectedOrderDate.api], name: "Expected Order Date" };
+}
+
+
+function isExcludedTestDeal(deal) {
+    var name = String((deal && deal.Deal_Name) || "").toLowerCase();
+    return EXCLUDED_DEAL_NAME_WORDS.some(function(word) { return name.indexOf(word) !== -1; });
+}
+
+
+/* =========================================================
+   BUILD
+   ========================================================= */
+
+function buildLiveData(dealMeta, accountMeta, deals, accounts) {
+
+    var dealOptions = fieldOptions(dealMeta, deals);
+    var accountOptions = fieldOptions(accountMeta, accounts);
+
+    fieldInfo = {};
+    fieldInfo.expectedOrderDate = chooseDateField(DEAL_FIELDS.expectedOrderDate,
+        [/expected order date/, /expected.*order.*date/], "Expected_Order_Date", dealOptions, deals);
+    fieldInfo.actualOrderDate = chooseDateField(DEAL_FIELDS.actualOrderDate,
+        [/actual order date/, /actual.*order.*date/], "Actual_Order_Date", dealOptions, deals);
+    fieldInfo.closingDate = DEAL_FIELDS.closingDate
+        ? describeField(DEAL_FIELDS.closingDate, dealOptions, true)
+        : (function() {
+            var exists = dealOptions.some(function(o) { return o.api === "Closing_Date"; });
+            return exists ? describeField("Closing_Date", dealOptions, true)
+                : chooseDateField("", [/^closing date\b/, /\bclosing date\b/], "Closing_Date", dealOptions, deals);
+        })();
+    fieldInfo.year = chooseYearField(dealOptions, deals);
+    fieldInfo.dealType = chooseDealTypeField(dealOptions, deals);
+
+    var fyDeals = deals.filter(function(d) { return dealFiscalYear(d) === FY_FILTER; });
+    var scope = fyDeals.length ? fyDeals : deals;
+
+    fieldInfo.amount = chooseAmountField(dealOptions, scope);
+    fieldInfo.product = chooseProductField(dealOptions, scope);
+
+    var gistHqAccounts = accounts.filter(function(a) { return isGistHqName(ddLookupName(a.Owner, "")); });
+    fieldInfo.gist = chooseGistField(accountOptions, gistHqAccounts.length ? gistHqAccounts : accounts);
+    fieldInfo.region = ACCOUNT_REGION_FIELD
+        ? describeField(ACCOUNT_REGION_FIELD, accountOptions, true)
+        : (pickByTiers(accountOptions, [
+              function(o) { return /billing region/.test(optionText(o)); },
+              function(o) { return /\bregion\b/.test(optionText(o)); }
+          ], function(api) { return countNonEmpty(accounts, api); }) || describeField("Billing_Region", accountOptions, false));
+
+    amountUnitInUse = decideAmountUnit(scope, fieldInfo.amount.api);
+
+    /* ---- accounts ---- */
+    var accountsById = {};
+    var ownerIdByName = {};
+    var allOwners = {};
+
+    accounts.forEach(function(a) {
+
+        if (!a.id) return;
+
+        var ownerName = ddLookupName(a.Owner, "Unassigned");
+        var ownerId = ddLookupId(a.Owner);
+        var region = fieldValueText(a[fieldInfo.region.api]);
+
+        var account = {
+            id: String(a.id),
+            name: a.Account_Name || "(Unnamed Account)",
+            ownerId: ownerId,
+            ownerName: ownerName,
+            gistNames: fieldValueList(a[fieldInfo.gist.api]),
+            region: region,
+            isInternational: INTERNATIONAL_REGION_VALUES.some(function(v) {
+                return region.trim().toLowerCase() === String(v).trim().toLowerCase();
+            })
+        };
+
+        account.teamIndex = assignTeam(account);
+        accountsById[account.id] = account;
+
+        if (ownerId) {
+            ownerIdByName[ownerName.trim().toLowerCase()] = ownerId;
+            allOwners[ownerId] = ownerName;
+        }
+    });
+
+    /* ---- deal records for the FY ---- */
+    var records = [];
+    var kindCount = { "new": 0, renewal: 0, other: 0 };
+    var undated = 0;
+
+    deals.forEach(function(d) {
+
+        var ownerId = ddLookupId(d.Owner);
+        var ownerName = ddLookupName(d.Owner, "Unassigned");
+        if (ownerId) {
+            allOwners[ownerId] = ownerName;
+            if (!ownerIdByName[ownerName.trim().toLowerCase()]) ownerIdByName[ownerName.trim().toLowerCase()] = ownerId;
+        }
+
+        if (dealFiscalYear(d) !== FY_FILTER) return;
+        if (isRemovedStage(d.Stage)) return;
+
+        var kind = fieldInfo.dealType.found ? dealTypeKindOf(d[fieldInfo.dealType.api]) : "new";
+        kindCount[kind] = (kindCount[kind] || 0) + 1;
+        if (kind === "other") return;
+
+        var accId = ddLookupId(d.Account_Name);
+        var account = accountsById[accId] || null;
+        var intl = !!(account && account.isInternational);
+
+        var raw = parseNumber(d[fieldInfo.amount.api]);
+        var lakh = (amountUnitInUse === "lakh" ? raw : raw / 100000) * (intl ? USD_TO_INR : 1);
+
+        var sd = stageDate(d);
+        var quarter = fyQuarterOf(sd.value);
+        if (!quarter) undated++;
+
+        records.push({
+            id: String(d.id || ""),
+            dealName: d.Deal_Name || "(Unnamed Deal)",
+            kind: kind,
+            stage: String(d.Stage || "").trim() || "Unknown",
+            won: isClosedWonStage(d.Stage),
+            lost: isClosedLostStage(d.Stage),
+            open: isOpenStage(d.Stage),
+            quarter: quarter,
+            dateValue: sd.value || "",
+            dateName: sd.name,
+            amount: lakh,
+            intl: intl,
+            accId: accId,
+            accName: account ? account.name : ddLookupName(d.Account_Name, "(No account)"),
+            ownerId: ownerId,
+            ownerName: ownerName,
+            teamIndex: account ? account.teamIndex : -1,
+            products: fieldValueList(d[fieldInfo.product.api]),
+            excluded: isExcludedTestDeal(d)
+        });
+    });
+
+    return {
+        records: records,
+        accountsById: accountsById,
+        ownerIdByName: ownerIdByName,
+        allOwners: allOwners,
+        dealCount: deals.length,
+        accountCount: accounts.length,
+        fyDealCount: fyDeals.length,
+        kindCount: kindCount,
+        undated: undated
+    };
+}
+
+
+/* =========================================================
+   SCOPE AND METRICS
+   ========================================================= */
+
+/* Owner ids on screen. Scoped to the DEAL owner, so a CSM's renewals follow the CSM. */
+function ownerSet(live) {
+
+    var mode = ownerScopeMode();
+    var set = {};
+
+    if (mode === "list") {
+        var id = live.ownerIdByName[String(selectedOwner).trim().toLowerCase()];
+        if (id) set[id] = true;
+        return { set: set, missing: id ? [] : [selectedOwner] };
+    }
+
+    Object.keys(live.allOwners).forEach(function(id) {
+        var name = live.allOwners[id];
+        if (mode === "sales" && !isAllowedOwnerName(name)) return;
+        if (mode === "others" && isAllowedOwnerName(name)) return;
+        set[id] = true;
+    });
+
+    return { set: set, missing: [] };
+}
+
+
+function blankBucket() {
+    return { amount: 0, count: 0, accounts: {}, rows: [] };
+}
+
+
+function addRecord(bucket, rec) {
+    bucket.amount += rec.amount;
+    bucket.count += 1;
+    if (rec.accId) bucket.accounts[rec.accId] = true;
+    bucket.rows.push(rec);
+}
+
+
+function bucketAccounts(bucket) {
+    return Object.keys(bucket.accounts).length;
+}
+
+
+/*
+ * All the figures on the page, for the current three filters.
+ * A record counts in the selected quarter only if its stage date falls in it.
+ * Renewal deals still waiting (open) with no date count in the book under
+ * "full year", because the book is identified by Deal Year.
+ */
+function computeMetrics(live) {
+
+    var scope = ownerSet(live);
+    var allQ = selectedQuarter === ALL_QUARTERS;
+
+    var m = {
+        missingOwner: scope.missing,
+        newWon: blankBucket(),
+        newOpen: blankBucket(),
+        newLost: blankBucket(),
+        renWon: blankBucket(),
+        renLost: blankBucket(),
+        renOpen: blankBucket(),
+        byQuarter: {},
+        region: {
+            india: { won: 0, lost: 0 },
+            intl: { won: 0, lost: 0 }
+        },
+        teamWon: SALES_TEAM_TARGETS.map(function() { return blankBucket(); }),
+        teamUnassigned: blankBucket()
+    };
+
+    QUARTERS.forEach(function(q) { m.byQuarter[q] = { won: 0, lost: 0 }; });
+
+    live.records.forEach(function(rec) {
+
+        if (!scope.set[rec.ownerId]) return;
+        if (rec.excluded) return;
+
+        var inPeriod = allQ ? !!rec.quarter : rec.quarter === selectedQuarter;
+
+        /* ---- quarter columns always use all four quarters ---- */
+        if (rec.quarter) {
+            if (rec.kind === "new" && rec.won) m.byQuarter[rec.quarter].won += rec.amount;
+            if (rec.kind === "renewal" && rec.lost) m.byQuarter[rec.quarter].lost += rec.amount;
+        }
+
+        if (rec.kind === "new") {
+            if (rec.won && inPeriod) {
+                addRecord(m.newWon, rec);
+                (rec.intl ? m.region.intl : m.region.india).won += rec.amount;
+                if (rec.teamIndex >= 0) addRecord(m.teamWon[rec.teamIndex], rec);
+                else addRecord(m.teamUnassigned, rec);
+            }
+            if (rec.open && inPeriod) addRecord(m.newOpen, rec);
+            if (rec.lost && inPeriod) addRecord(m.newLost, rec);
+            return;
+        }
+
+        /* renewal */
+        if (rec.won && inPeriod) addRecord(m.renWon, rec);
+        if (rec.lost && inPeriod) {
+            addRecord(m.renLost, rec);
+            (rec.intl ? m.region.intl : m.region.india).lost += rec.amount;
+        }
+        if (rec.open && (inPeriod || (allQ && !rec.quarter))) addRecord(m.renOpen, rec);
+    });
+
+    /* the deal type filter decides which half of the equation is live */
+    m.useNew = selectedDealType !== DT_RENEWAL;
+    m.useRenewal = selectedDealType !== DT_NEW;
+
+    m.wonAmount = m.useNew ? m.newWon.amount : 0;
+    m.lostAmount = m.useRenewal ? m.renLost.amount : 0;
+    m.net = m.wonAmount - m.lostAmount;
+
+    m.renewalBase = m.renWon.amount + m.renLost.amount + m.renOpen.amount;
+    m.renewalDecided = m.renWon.amount + m.renLost.amount;
+    m.target = m.useNew ? scopedTarget() : 0;
+
+    return m;
+}
+
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+
+function fmt(value, decimals) {
+    var d = decimals === undefined ? 1 : decimals;
+    return Number(value || 0).toLocaleString("en-IN", { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+
+
+function lakh(value) {
+    return fmt(value) + " L";
+}
+
+
+function signedLakh(value) {
+    var sign = value < 0 ? "−" : "+";
+    return sign + fmt(Math.abs(value)) + " L";
+}
+
+
+function pct(part, whole) {
+    if (!whole) return "—";
+    return Math.round((part / whole) * 100) + "%";
+}
+
+
+function pctClass(part, whole) {
+    if (!whole) return "pill";
+    var p = (part / whole) * 100;
+    if (p >= 75) return "pill good";
+    if (p >= 40) return "pill warn";
+    return "pill bad";
+}
+
+
+function accLabel(n) {
+    return n + (n === 1 ? " account" : " accounts");
+}
+
+
+/* A clickable figure. key is looked up by the drill popup. */
+function click(key, html) {
+    return '<span class="click" data-drill="' + key + '" role="button" tabindex="0">' + html + '</span>';
+}
+
+
+function renderAll() {
+
+    if (!liveResolved) return;
+
+    var live = liveResolved;
+    var m = computeMetrics(live);
+
+    document.getElementById("subTitle").innerText =
+        "New business won, less revenue lost at renewal  ·  " + periodLabel() + "  ·  " + ownerScopeLabel();
+
+    renderWarnings(live, m);
+
+    /* with both halves on screen they sit side by side; with one, it takes the wider column */
+    var bothHalves = m.useNew && m.useRenewal;
+    var halfClass = bothHalves ? "half" : "two-third";
+
+    var html = '<main class="grid">';
+    html += equationPanel(m);
+    if (m.useNew) html += newBusinessPanel(m, halfClass);
+    if (m.useRenewal) html += renewalPanel(m, halfClass);
+    if (bothHalves) {
+        html += quarterPanel(m, "two-third");
+        html += regionPanel(m, "third");
+    } else {
+        html += regionPanel(m, "third");
+        html += quarterPanel(m, "full");
+    }
+    if (m.useNew) html += teamPanel(m);
+    html += '</main>';
+
+    document.getElementById("content").innerHTML = html;
+    document.getElementById("footNote").innerHTML = footNote(live, m);
+
+    lastDrill = { metrics: m, live: live };
+    attachDrillHandlers();
+}
+
+
+function renderWarnings(live, m) {
+
+    var warn = [];
+
+    if (!fieldInfo.dealType.found) {
+        warn.push("No Deal Type field was found, so every deal is being read as new business. Set DEAL_FIELDS.dealType to the API name of your Deal Type field.");
+    }
+    if (!fieldInfo.amount.found) {
+        warn.push("No Expected Business field was found; amounts are coming from “" + fieldInfo.amount.label + "”.");
+    }
+    if (m.missingOwner.length) {
+        warn.push("No CRM user matched " + m.missingOwner.join(", ") + ", so the figures are empty for that owner.");
+    }
+    if (!live.records.length) {
+        warn.push("No deals with Deal Year " + FY_FILTER + " were found. " + live.dealCount + " deals were read in total.");
+    }
+
+    var note = document.getElementById("warnNote");
+    if (warn.length) {
+        note.className = "note warn";
+        note.innerHTML = warn.map(escapeHtml).join("<br>");
+    } else {
+        note.className = "note warn hidden";
+    }
+}
+
+
+function equationPanel(m) {
+
+    var wonFoot = m.target
+        ? pct(m.wonAmount, m.target) + " of a " + lakh(m.target) + " target"
+        : (m.useNew ? accLabel(bucketAccounts(m.newWon)) + " won" : "hidden by the deal type filter");
+
+    var lostFoot = m.useRenewal
+        ? accLabel(bucketAccounts(m.renLost)) + " did not renew"
+        : "hidden by the deal type filter";
+
+    var netFoot;
+    if (m.wonAmount > 0 && m.lostAmount > 0) {
+        netFoot = "Every 1.00 L of new business is carrying " + fmt(m.lostAmount / m.wonAmount, 2) + " L of churn";
+    } else if (m.lostAmount > 0 && m.wonAmount === 0) {
+        netFoot = "Nothing new has been won in this period to cover the churn";
+    } else if (m.wonAmount > 0) {
+        netFoot = "Nothing lost at renewal in this period";
+    } else {
+        netFoot = "Nothing closed either way in this period";
+    }
+
+    return '' +
+    '<section class="panel full">' +
+      '<h2>Where the business actually moved <small>a renewal that renews holds revenue flat, so only these two change the total</small></h2>' +
+      '<div class="eq">' +
+        '<div class="term gain">' +
+          '<div class="lab">New business won</div>' +
+          '<div class="fig">' + click("newWon", "+" + lakh(m.wonAmount)) + '</div>' +
+          '<div class="foot">' + escapeHtml(wonFoot) + '</div>' +
+        '</div>' +
+        '<div class="op">&minus;</div>' +
+        '<div class="term loss">' +
+          '<div class="lab">Revenue lost at renewal</div>' +
+          '<div class="fig">' + click("renLost", "−" + lakh(m.lostAmount)) + '</div>' +
+          '<div class="foot">' + escapeHtml(lostFoot) + '</div>' +
+        '</div>' +
+        '<div class="op">=</div>' +
+        '<div class="term net' + (m.net < 0 ? " negative" : "") + '">' +
+          '<div class="lab">Net growth this ' + (selectedQuarter === ALL_QUARTERS ? "year" : "quarter") + '</div>' +
+          '<div class="fig">' + signedLakh(m.net) + '</div>' +
+          '<div class="foot">' + escapeHtml(netFoot) + '</div>' +
+        '</div>' +
+      '</div>' +
+    '</section>';
+}
+
+
+function newBusinessPanel(m, panelClass) {
+
+    var target = m.target;
+    var share = target ? Math.max(0, Math.min(100, (m.wonAmount / target) * 100)) : 0;
+    var pace = Math.round(elapsedFraction() * 100);
+
+    var intlTarget = SALES_TEAM_TARGETS.filter(function(r) { return r.international; })
+        .reduce(function(s, r) { return s + (teamRowsInScope().some(function(it) { return it.row === r; }) ? teamTarget(r) : 0); }, 0);
+    var indiaTarget = target - intlTarget;
+
+    return '' +
+    '<section class="panel ' + panelClass + '">' +
+      '<h2>New business <small>against target</small></h2>' +
+      '<div class="figs">' +
+        '<div><span>Won</span><div class="big gainc">' + click("newWon", lakh(m.newWon.amount)) + '</div></div>' +
+        '<div><span>Target</span><div class="big">' + (target ? lakh(target) : "no target") + '</div></div>' +
+        '<div><span>Achievement</span><div class="big">' + pct(m.newWon.amount, target) + '</div></div>' +
+        '<div><span>Still in pipeline</span><div class="big openc">' + click("newOpen", lakh(m.newOpen.amount)) + '</div></div>' +
+      '</div>' +
+      '<div class="stack"><i class="fill-gain" style="width:' + share.toFixed(1) + '%"></i></div>' +
+      '<div class="key">' +
+        '<span><i class="fill-gain"></i>Won <b>' + lakh(m.newWon.amount) + '</b></span>' +
+        (target ? '<span>Target <b>' + lakh(target) + '</b>' +
+            (intlTarget ? ' &middot; India ' + lakh(indiaTarget) + ', International ' + lakh(intlTarget) : '') + '</span>' : '') +
+      '</div>' +
+      '<p class="hint">' + (target
+          ? pct(m.newWon.amount, target) + " of target is in, with " + pace + "% of the period gone - on an even pace it would be " + pace + "% by now."
+          : "This owner has no new-business target, so only the won figure is shown.") +
+        ' Won counts ' + accLabel(bucketAccounts(m.newWon)) + ' on ' + m.newWon.count + ' deals.</p>' +
+    '</section>';
+}
+
+
+function renewalPanel(m, panelClass) {
+
+    var base = m.renewalBase;
+    var w = function(v) { return base ? ((v / base) * 100).toFixed(1) : "0"; };
+
+    return '' +
+    '<section class="panel ' + panelClass + '">' +
+      '<h2>Renewals <small>against the book due this year</small></h2>' +
+      '<div class="figs">' +
+        '<div><span>Retained</span><div class="big gainc">' + click("renWon", lakh(m.renWon.amount)) + '</div></div>' +
+        '<div><span>Lost</span><div class="big lossc">' + click("renLost", lakh(m.renLost.amount)) + '</div></div>' +
+        '<div><span>Still open</span><div class="big openc">' + click("renOpen", lakh(m.renOpen.amount)) + '</div></div>' +
+        '<div><span>Retention</span><div class="big">' + pct(m.renWon.amount, m.renewalDecided) + '</div></div>' +
+      '</div>' +
+      '<div class="stack">' +
+        '<i class="fill-gain" style="width:' + w(m.renWon.amount) + '%"></i>' +
+        '<i class="fill-loss" style="width:' + w(m.renLost.amount) + '%"></i>' +
+        '<i class="fill-open" style="width:' + w(m.renOpen.amount) + '%"></i>' +
+      '</div>' +
+      '<div class="key">' +
+        '<span><i class="fill-gain"></i>Retained <b>' + lakh(m.renWon.amount) + '</b></span>' +
+        '<span><i class="fill-loss"></i>Lost <b>' + lakh(m.renLost.amount) + '</b></span>' +
+        '<span><i class="fill-open"></i>Open <b>' + lakh(m.renOpen.amount) + '</b></span>' +
+      '</div>' +
+      '<p class="hint">Book due this year ' + lakh(base) + ' across ' +
+        accLabel(bucketAccounts(m.renWon) + bucketAccounts(m.renLost) + bucketAccounts(m.renOpen)) +
+        '. Retention is what was kept out of everything decided so far (' + lakh(m.renewalDecided) + '); ' +
+        lakh(m.renOpen.amount) + ' has not come up for renewal yet.</p>' +
+    '</section>';
+}
+
+
+function quarterPanel(m, panelClass) {
+
+    var maxUp = 0, maxDown = 0;
+    QUARTERS.forEach(function(q) {
+        maxUp = Math.max(maxUp, m.useNew ? m.byQuarter[q].won : 0);
+        maxDown = Math.max(maxDown, m.useRenewal ? m.byQuarter[q].lost : 0);
+    });
+
+    /* one scale on both sides of the zero line; 18px of each row is kept for the caption */
+    var scale = Math.min(maxUp ? 92 / maxUp : 1e9, maxDown ? 78 / maxDown : 1e9);
+    if (!isFinite(scale) || scale === 1e9) scale = 0;
+
+    var now = currentFyQuarter();
+    var cols = "";
+
+    QUARTERS.forEach(function(q) {
+
+        var up = m.useNew ? m.byQuarter[q].won : 0;
+        var down = m.useRenewal ? m.byQuarter[q].lost : 0;
+        var net = up - down;
+
+        cols += '<div class="qcol">' +
+            '<div class="up"><div class="cap up">' + (up ? "+" + fmt(up) : "0.0") + '</div>' +
+                '<i style="height:' + Math.round(up * scale) + 'px"></i></div>' +
+            '<div class="zero"></div>' +
+            '<div class="down"><i style="height:' + Math.round(down * scale) + 'px"></i>' +
+                '<div class="cap dn">' + (down ? "−" + fmt(down) : "0.0") + '</div></div>' +
+            '<div class="lbl' + (q === now ? " now" : "") + '">' + q + (q === now ? " &middot; current" : "") +
+                '<b>' + signedLakh(net) + '</b></div>' +
+        '</div>';
+    });
+
+    var hint = selectedQuarter === ALL_QUARTERS
+        ? "Both sides are drawn to the same scale, so a short green bar above a long red one means the quarter went backwards."
+        : "The columns always show all four quarters; the quarter filter changes the figures above, not this chart.";
+
+    return '' +
+    '<section class="panel ' + panelClass + '">' +
+      '<h2>Net growth by quarter <small>new business above the line, renewal losses below</small></h2>' +
+      '<div class="qchart">' + cols + '</div>' +
+      '<p class="hint">' + hint + '</p>' +
+    '</section>';
+}
+
+
+function regionPanel(m, panelClass) {
+
+    var rows = [
+        { name: "India", won: m.useNew ? m.region.india.won : 0, lost: m.useRenewal ? m.region.india.lost : 0 },
+        { name: "International", won: m.useNew ? m.region.intl.won : 0, lost: m.useRenewal ? m.region.intl.lost : 0 }
+    ];
+
+    var body = rows.map(function(r) {
+        return '<tr><th scope="row">' + r.name + '</th>' +
+               '<td class="gainc">' + lakh(r.won) + '</td>' +
+               '<td class="lossc">' + lakh(r.lost) + '</td>' +
+               '<td><strong>' + signedLakh(r.won - r.lost) + '</strong></td></tr>';
+    }).join("");
+
+    return '' +
+    '<section class="panel ' + panelClass + '">' +
+      '<h2>India and International</h2>' +
+      '<div class="scroll"><table>' +
+        '<thead><tr><th>&nbsp;</th><th>New won</th><th>Renewal lost</th><th>Net</th></tr></thead>' +
+        '<tbody>' + body + '</tbody>' +
+        '<tfoot><tr><th scope="row">Total</th>' +
+          '<td class="gainc">' + lakh(m.wonAmount) + '</td>' +
+          '<td class="lossc">' + lakh(m.lostAmount) + '</td>' +
+          '<td>' + signedLakh(m.net) + '</td></tr></tfoot>' +
+      '</table></div>' +
+      '<p class="hint">International amounts are converted at ' + USD_TO_INR + ' per USD.</p>' +
+    '</section>';
+}
+
+
+function teamPanel(m) {
+
+    var scopeRows = teamRowsInScope();
+
+    var rows = scopeRows.map(function(it) {
+        return {
+            name: it.row.team,
+            target: teamTarget(it.row),
+            won: m.teamWon[it.index].amount,
+            key: "team" + it.index
+        };
+    });
+
+    var inScopeWon = rows.reduce(function(s, r) { return s + r.won; }, 0);
+    var rest = m.newWon.amount - inScopeWon;
+
+    if (Math.abs(rest) > 0.005) {
+        rows.push({ name: "Outside the teams shown (no target)", target: 0, won: rest, key: "teamRest" });
+    }
+
+    rows.sort(function(a, b) { return (b.target - a.target) || (b.won - a.won); });
+
+    var body = rows.map(function(r) {
+        var gap = r.target - r.won;
+        return '<tr><th scope="row">' + escapeHtml(r.name) + '</th>' +
+            '<td>' + (r.target ? lakh(r.target) : '<span class="mutedc">no target</span>') + '</td>' +
+            '<td class="gainc">' + click(r.key, lakh(r.won)) + '</td>' +
+            '<td>' + (r.target ? '<span class="' + pctClass(r.won, r.target) + '">' + pct(r.won, r.target) + '</span>' : '<span class="mutedc">—</span>') + '</td>' +
+            '<td class="' + (gap > 0 ? "lossc" : "gainc") + '">' + (r.target ? (gap > 0 ? lakh(gap) : "met") : "—") + '</td></tr>';
+    }).join("");
+
+    var totalTarget = rows.reduce(function(s, r) { return s + r.target; }, 0);
+    var totalGap = totalTarget - m.newWon.amount;
+
+    return '' +
+    '<section class="panel full">' +
+      '<h2>New business by team <small>target, won and what is left to find</small></h2>' +
+      '<div class="scroll"><table>' +
+        '<thead><tr><th>Team</th><th>Target</th><th>Won</th><th>Achievement</th><th>Gap to target</th></tr></thead>' +
+        '<tbody>' + (body || '<tr><td colspan="5" class="mutedc">No target rows for this owner.</td></tr>') + '</tbody>' +
+        '<tfoot><tr><th scope="row">Total</th>' +
+          '<td>' + (totalTarget ? lakh(totalTarget) : "—") + '</td>' +
+          '<td class="gainc">' + lakh(m.newWon.amount) + '</td>' +
+          '<td>' + (totalTarget ? '<span class="' + pctClass(m.newWon.amount, totalTarget) + '">' + pct(m.newWon.amount, totalTarget) + '</span>' : "—") + '</td>' +
+          '<td class="' + (totalGap > 0 ? "lossc" : "gainc") + '">' + (totalTarget ? (totalGap > 0 ? lakh(totalGap) : "met") : "—") + '</td></tr></tfoot>' +
+      '</table></div>' +
+      '<p class="hint">Teams are read from the account: the account owner, or the Gist Account Owner on GIST HQ accounts. A won deal whose account does not belong to a team on screen sits in the last row, so the column still adds up to the figure at the top.</p>' +
+    '</section>';
+}
+
+
+function footNote(live, m) {
+
+    var parts = [];
+
+    parts.push("New business won counts Closed Won deals of Deal Type New with an Actual Order Date in the period. " +
+        "Revenue lost at renewal counts Renewal deals at Closed Lost, by Closing Date. A renewal that renews is not counted " +
+        "as growth, because it holds revenue where it already was. Amounts come from " + fieldInfo.amount.label +
+        "; International accounts are converted at " + USD_TO_INR + " per USD.");
+
+    parts.push("Read live from CRM: " + live.dealCount + " deals, " + live.accountCount + " accounts, " +
+        live.fyDealCount + " with Deal Year " + FY_FILTER + " (" + live.kindCount["new"] + " new, " +
+        live.kindCount.renewal + " renewal, " + live.kindCount.other + " other deal types)." +
+        (live.undated ? " " + live.undated + " of them have no date in the FY on the field their stage uses, so they fall outside every quarter." : ""));
+
+    parts.push("Fields in use — amount: " + fieldInfo.amount.label + " (" + fieldInfo.amount.api + "), deal type: " +
+        fieldInfo.dealType.label + " (" + fieldInfo.dealType.api + "), deal year: " + fieldInfo.year.label +
+        ", dates: " + fieldInfo.actualOrderDate.label + " / " + fieldInfo.closingDate.label + " / " +
+        fieldInfo.expectedOrderDate.label + ", region: " + fieldInfo.region.label + ".");
+
+    return parts.map(escapeHtml).join("<br><br>");
+}
+
+
+/* =========================================================
+   DRILL POPUP
+   ========================================================= */
+
+function attachDrillHandlers() {
+    var nodes = document.querySelectorAll("#content .click");
+    Array.prototype.forEach.call(nodes, function(el) {
+        el.onclick = function() { openDrill(el.getAttribute("data-drill")); };
+        el.onkeydown = function(e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDrill(el.getAttribute("data-drill")); } };
+    });
+}
+
+
+function drillSource(key, m) {
+
+    if (key === "newWon") return { title: "New business won", rows: m.newWon.rows };
+    if (key === "newOpen") return { title: "New business still in pipeline", rows: m.newOpen.rows };
+    if (key === "renWon") return { title: "Renewals retained", rows: m.renWon.rows };
+    if (key === "renLost") return { title: "Revenue lost at renewal", rows: m.renLost.rows };
+    if (key === "renOpen") return { title: "Renewals still open", rows: m.renOpen.rows };
+
+    if (key === "teamRest") {
+        var scoped = {};
+        teamRowsInScope().forEach(function(it) { scoped[it.index] = true; });
+        return {
+            title: "New business won - owners with no target on screen",
+            rows: m.newWon.rows.filter(function(r) { return !scoped[r.teamIndex]; })
+        };
+    }
+
+    var teamMatch = String(key || "").match(/^team(\d+)$/);
+    if (teamMatch) {
+        var index = Number(teamMatch[1]);
+        return { title: "New business won - " + SALES_TEAM_TARGETS[index].team, rows: m.teamWon[index].rows };
+    }
+
+    return null;
+}
+
+
+function openDrill(key) {
+
+    if (!lastDrill) return;
+
+    var source = drillSource(key, lastDrill.metrics);
+    if (!source) return;
+
+    var rows = source.rows.slice().sort(function(a, b) { return b.amount - a.amount; });
+    var total = rows.reduce(function(s, r) { return s + r.amount; }, 0);
+    var accounts = {};
+    rows.forEach(function(r) { if (r.accId) accounts[r.accId] = true; });
+
+    document.getElementById("drillTitle").innerText = source.title + "  ·  " + periodLabel();
+
+    var html = '<div class="modal-sum"><b>' + lakh(total) + '</b> across <b>' + rows.length +
+        (rows.length === 1 ? " deal" : " deals") + '</b> and <b>' + Object.keys(accounts).length +
+        (Object.keys(accounts).length === 1 ? " account" : " accounts") + '</b> · ' + escapeHtml(ownerScopeLabel()) + '</div>';
+
+    if (!rows.length) {
+        html += '<div class="empty">No deals match this figure.</div>';
+    } else {
+        html += '<div class="scroll"><table><thead><tr><th>Account</th><th>Deal</th><th>Stage</th>' +
+                '<th>Date</th><th>Quarter</th><th>Owner</th><th>Amount</th></tr></thead><tbody>';
+        rows.forEach(function(r) {
+            html += '<tr>' +
+                '<td>' + escapeHtml(r.accName) + (r.intl ? ' <span class="mutedc">(intl)</span>' : '') + '</td>' +
+                '<td>' + escapeHtml(r.dealName) + '</td>' +
+                '<td>' + escapeHtml(r.stage) + '</td>' +
+                '<td>' + escapeHtml(fmtDate(r.dateValue)) + '</td>' +
+                '<td>' + (r.quarter || '<span class="mutedc">outside FY</span>') + '</td>' +
+                '<td>' + escapeHtml(r.ownerName) + '</td>' +
+                '<td>' + lakh(r.amount) + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table></div>';
+        html += '<p class="hint">Date column is the ' + escapeHtml(rows[0].dateName) + ' for these stages.</p>';
+    }
+
+    document.getElementById("drillBody").innerHTML = html;
+
+    var modal = document.getElementById("drillModal");
+    var box = document.getElementById("drillBox");
+    modal.classList.add("open");
+    positionModal(modal, box);
+}
+
+
+function positionModal(modal, box) {
+    var pageHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+    modal.style.height = pageHeight + "px";
+    var boxHeight = box.offsetHeight || 400;
+    var top = Math.max(10, Math.min(lastClickY - 60, pageHeight - boxHeight - 10));
+    box.style.top = top + "px";
+}
+
+
+function closeDrill() {
+    document.getElementById("drillModal").classList.remove("open");
+}
+
+
+document.addEventListener("keydown", function(e) { if (e.key === "Escape") closeDrill(); });
+
+
+function fmtDate(value) {
+    var date = ddParseDate(value);
+    if (!date) return "—";
+    return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+
+function escapeHtml(value) {
+    return String(value === undefined || value === null ? "" : value)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+</script>
 </body>
 </html>
