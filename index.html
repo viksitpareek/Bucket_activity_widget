@@ -242,7 +242,17 @@ var FY_FILTER = FY_START_YEAR + "-" + (FY_START_YEAR + 1);     // Deal Year (Yea
 
 /* Deal Type values. Anything that is neither of these is ignored on this page. */
 var NEW_DEAL_TYPE_VALUES = ["New", "New Business", "New Sales"];
-var RENEWAL_DEAL_TYPE_VALUES = ["Renewal", "Renewals", "Renewal Business", "Re-newal"];
+
+/* The renewal book, exactly as the Zoho renewal dashboard defines it */
+var RENEWAL_DEAL_TYPE_VALUES = ["Renewal", "Upgrade", "Existing Customer-Replacement", "Downgrade"];
+
+/*
+ * and the second half of that definition: Subscription Start Date is before this date.
+ * A renewal deal with no Subscription Start Date, or one on/after the date, is not in
+ * the book - the same way Zoho's "is before" filter drops it.
+ */
+var RENEWAL_REQUIRE_SUB_START = true;
+var RENEWAL_SUB_START_BEFORE = "2027-04-02";
 
 /* Field API names. Leave "" to auto-detect; the grey note at the foot shows what was picked. */
 var DEAL_FIELDS = {
@@ -252,7 +262,8 @@ var DEAL_FIELDS = {
     dealType: "",          // Type / a field labelled "Deal Type"
     expectedOrderDate: "", // "Expected Order Date"
     actualOrderDate: "",   // "Actual Order Date"
-    closingDate: ""        // "Closing Date"
+    closingDate: "",       // "Closing Date"
+    subStartDate: ""       // "Subscription Start Date" / "Sub Start Date" (Deals, else Accounts)
 };
 var ACCOUNT_GIST_FIELD = "";    // Accounts: "Gist Account Owner"
 var ACCOUNT_REGION_FIELD = "";  // Accounts: "Billing Region"
@@ -331,6 +342,7 @@ var QUARTER_INFO = {
     Q4: { range: "1 Jan - 31 Mar " + (FY_START_YEAR + 1) }
 };
 var ALL_QUARTERS = "All Quarters";
+var RENEWAL_SUB_START_CUTOFF = ddParseDate(RENEWAL_SUB_START_BEFORE);
 
 var CLOSED_WON_KEYS = CLOSED_WON_STAGES.map(normStage);
 var CLOSED_LOST_KEYS = CLOSED_LOST_STAGES.map(normStage);
@@ -379,7 +391,7 @@ function populateDealTypeFilter() {
     document.getElementById("dealTypeFilter").innerHTML =
         '<option value="' + DT_BOTH + '">New + Renewal</option>' +
         '<option value="' + DT_NEW + '">New business only</option>' +
-        '<option value="' + DT_RENEWAL + '">Renewal only</option>';
+        '<option value="' + DT_RENEWAL + '">Renewal book only</option>';
 }
 
 
@@ -807,16 +819,26 @@ function countDealTypeMatches(records, api) {
 }
 
 
+/* Spaces, hyphens and case are ignored, so "Existing Customer - Replacement" still matches */
+function normType(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+
 /* "new" / "renewal" / "other" from a Deal Type value */
 function dealTypeKindOf(value) {
-    var values = fieldValueList(value).map(function(v) { return v.trim().toLowerCase(); });
-    var isNew = NEW_DEAL_TYPE_VALUES.map(function(v) { return v.toLowerCase(); });
-    var isRen = RENEWAL_DEAL_TYPE_VALUES.map(function(v) { return v.toLowerCase(); });
+
+    var values = fieldValueList(value).map(normType);
+    var isNew = NEW_DEAL_TYPE_VALUES.map(normType);
+    var isRen = RENEWAL_DEAL_TYPE_VALUES.map(normType);
+
     if (values.some(function(v) { return isRen.indexOf(v) !== -1; })) return "renewal";
     if (values.some(function(v) { return isNew.indexOf(v) !== -1; })) return "new";
-    // fall back on the word inside the value ("Renewal - Existing", "New - Direct")
+
+    // nothing matched exactly: fall back on the word inside the value
     if (values.some(function(v) { return /renew/.test(v); })) return "renewal";
-    if (values.some(function(v) { return /\bnew\b/.test(v); })) return "new";
+    if (values.some(function(v) { return /^new/.test(v); })) return "new";
+
     return "other";
 }
 
@@ -964,6 +986,16 @@ function isRemovedStage(stage) { return REMOVED_STAGE_KEYS.indexOf(normStage(sta
 function isOpenStage(stage) { return !isClosedWonStage(stage) && !isClosedLostStage(stage) && !isRemovedStage(stage); }
 
 
+/* Subscription Start Date from the deal, or from its account when the field lives there */
+function subStartOf(deal, account) {
+    if (!fieldInfo.subStart.found) return "";
+    if (fieldInfo.subStart.module === "Accounts") {
+        return account ? fieldValueText(account.raw ? account.raw[fieldInfo.subStart.api] : "") : "";
+    }
+    return fieldValueText(deal[fieldInfo.subStart.api]);
+}
+
+
 function dealFiscalYear(deal) {
 
     var value = fieldValueText(deal ? deal[fieldInfo.year.api] : null);
@@ -1039,6 +1071,27 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
               function(o) { return /\bregion\b/.test(optionText(o)); }
           ], function(api) { return countNonEmpty(accounts, api); }) || describeField("Billing_Region", accountOptions, false));
 
+    /* Subscription Start Date: on the deal if it is there, otherwise on the account */
+    fieldInfo.subStart = (function() {
+
+        var patterns = [/sub(scription)? start date/, /sub(scription)?.*start/];
+        var tiers = patterns.map(function(re) { return function(o) { return re.test(optionText(o)); }; });
+
+        if (DEAL_FIELDS.subStartDate) {
+            var onDeals = dealOptions.some(function(o) { return o.api === DEAL_FIELDS.subStartDate; });
+            return { module: onDeals ? "Deals" : "Accounts", api: DEAL_FIELDS.subStartDate,
+                     label: DEAL_FIELDS.subStartDate, found: true };
+        }
+
+        var fromDeals = pickByTiers(dealOptions, tiers, function(api) { return countNonEmpty(deals, api); });
+        if (fromDeals) return { module: "Deals", api: fromDeals.api, label: fromDeals.label, found: true };
+
+        var fromAccounts = pickByTiers(accountOptions, tiers, function(api) { return countNonEmpty(accounts, api); });
+        if (fromAccounts) return { module: "Accounts", api: fromAccounts.api, label: fromAccounts.label, found: true };
+
+        return { module: "", api: "", label: "Subscription Start Date", found: false };
+    })();
+
     fieldInfo.currency = ACCOUNT_CURRENCY_FIELD
         ? describeField(ACCOUNT_CURRENCY_FIELD, accountOptions, true)
         : (pickByTiers(accountOptions, [
@@ -1074,6 +1127,7 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
             ownerName: ownerName,
             gistNames: fieldValueList(a[fieldInfo.gist.api]),
             region: region,
+            raw: a,
             currency: fieldValueText(a[fieldInfo.currency.api]),
             isInternational: INTERNATIONAL_REGION_VALUES.some(function(v) {
                 return region.trim().toLowerCase() === String(v).trim().toLowerCase();
@@ -1096,6 +1150,7 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
     var records = [];
     var kindCount = { "new": 0, renewal: 0, other: 0 };
     var undated = 0;
+    var book = { kept: 0, noSubStart: 0, afterCutoff: 0 };
 
     deals.forEach(function(d) {
 
@@ -1116,6 +1171,17 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
         var accId = ddLookupId(d.Account_Name);
         var account = accountsById[accId] || null;
         var intl = !!(account && account.isInternational);
+
+        /* the renewal book: Deal Year, one of the renewal deal types, and a
+           Subscription Start Date before the cutoff - the Zoho filter, exactly */
+        var subStartValue = subStartOf(d, account);
+
+        if (kind === "renewal" && RENEWAL_REQUIRE_SUB_START && fieldInfo.subStart.found) {
+            var subDate = ddParseDate(subStartValue);
+            if (!subDate) { book.noSubStart++; return; }
+            if (!RENEWAL_SUB_START_CUTOFF || subDate >= RENEWAL_SUB_START_CUTOFF) { book.afterCutoff++; return; }
+            book.kept++;
+        }
 
         /* account currency decides the conversion; then the deal's own currency; then the region */
         var usd = account ? account.currencyIsUsd : null;
@@ -1149,6 +1215,8 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
             intl: intl,
             usd: !!usd,
             currency: currencyText,
+            dealType: fieldValueText(d[fieldInfo.dealType.api]),
+            subStart: subStartValue || "",
             accId: accId,
             accName: account ? account.name : ddLookupName(d.Account_Name, "(No account)"),
             ownerId: ownerId,
@@ -1168,7 +1236,9 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
         accountCount: accounts.length,
         fyDealCount: fyDeals.length,
         kindCount: kindCount,
-        undated: undated
+        undated: undated,
+        book: book,
+        renewalNoQuarter: records.filter(function(r) { return r.kind === "renewal" && !r.quarter; }).length
     };
 }
 
@@ -1255,6 +1325,11 @@ function computeMetrics(live) {
 
         var inPeriod = allQ ? !!rec.quarter : rec.quarter === selectedQuarter;
 
+        /* The renewal book is defined by Deal Year + Subscription Start Date, so across the
+           full year every deal in it counts, even one whose stage date sits outside the FY.
+           Pick a quarter and the stage date has to land in that quarter. */
+        var renewalInPeriod = allQ ? true : rec.quarter === selectedQuarter;
+
         /* ---- quarter columns always use all four quarters ---- */
         if (rec.quarter) {
             if (rec.kind === "new" && rec.won) m.byQuarter[rec.quarter].won += rec.amount;
@@ -1274,12 +1349,12 @@ function computeMetrics(live) {
         }
 
         /* renewal */
-        if (rec.won && inPeriod) addRecord(m.renWon, rec);
-        if (rec.lost && inPeriod) {
+        if (rec.won && renewalInPeriod) addRecord(m.renWon, rec);
+        if (rec.lost && renewalInPeriod) {
             addRecord(m.renLost, rec);
             (rec.intl ? m.region.intl : m.region.india).lost += rec.amount;
         }
-        if (rec.open && (inPeriod || (allQ && !rec.quarter))) addRecord(m.renOpen, rec);
+        if (rec.open && renewalInPeriod) addRecord(m.renOpen, rec);
     });
 
     /* the deal type filter decides which half of the equation is live */
@@ -1395,6 +1470,10 @@ function renderWarnings(live, m) {
     }
     if (m.missingOwner.length) {
         warn.push("No CRM user matched " + m.missingOwner.join(", ") + ", so the figures are empty for that owner.");
+    }
+    if (RENEWAL_REQUIRE_SUB_START && !fieldInfo.subStart.found) {
+        warn.push("No Subscription Start Date field was found, so the renewal book is every renewal-type deal of Deal Year " +
+            FY_FILTER + " with no date cut-off. Set DEAL_FIELDS.subStartDate to its API name to match the Zoho renewal dashboard.");
     }
     if (!live.records.length) {
         warn.push("No deals with Deal Year " + FY_FILTER + " were found. " + live.dealCount + " deals were read in total.");
@@ -1517,7 +1596,9 @@ function renewalPanel(m, panelClass) {
       '<p class="hint">Book due this year ' + lakh(base) + ' across ' +
         accLabel(bucketAccounts(m.renWon) + bucketAccounts(m.renLost) + bucketAccounts(m.renOpen)) +
         '. Retention is what was kept out of everything decided so far (' + lakh(m.renewalDecided) + '); ' +
-        lakh(m.renOpen.amount) + ' has not come up for renewal yet.</p>' +
+        lakh(m.renOpen.amount) + ' has not come up for renewal yet. The book is Deal Year ' + FY_FILTER + ', Deal Type ' +
+        escapeHtml(RENEWAL_DEAL_TYPE_VALUES.join(" / ")) + ', ' + escapeHtml(fieldInfo.subStart.label) + ' before ' +
+        fmtDate(RENEWAL_SUB_START_BEFORE) + '.</p>' +
     '</section>';
 }
 
@@ -1654,21 +1735,29 @@ function footNote(live, m) {
     var parts = [];
 
     parts.push("New business won counts Closed Won deals of Deal Type New with an Actual Order Date in the period. " +
-        "Revenue lost at renewal counts Renewal deals at Closed Lost, by Closing Date. A renewal that renews is not counted " +
-        "as growth, because it holds revenue where it already was. Amounts come from " + fieldInfo.amount.label +
+        "The renewal book is the same filter the Zoho renewal dashboard uses: Deal Year " + FY_FILTER + ", Deal Type " +
+        RENEWAL_DEAL_TYPE_VALUES.join(" / ") + ", and " + fieldInfo.subStart.label + " before " +
+        fmtDate(RENEWAL_SUB_START_BEFORE) + ". Revenue lost at renewal is that book at Closed Lost. A renewal that renews " +
+        "is not counted as growth, because it holds revenue where it already was. Amounts come from " + fieldInfo.amount.label +
         ". An account whose Currency is USD is converted at " + USD_TO_INR +
         " per USD; an account billed in INR is counted as rupees whatever its Billing Region.");
 
     parts.push("Read live from CRM: " + live.dealCount + " deals, " + live.accountCount + " accounts, " +
         live.fyDealCount + " with Deal Year " + FY_FILTER + " (" + live.kindCount["new"] + " new, " +
-        live.kindCount.renewal + " renewal, " + live.kindCount.other + " other deal types)." +
-        (live.undated ? " " + live.undated + " of them have no date in the FY on the field their stage uses, so they fall outside every quarter." : ""));
+        live.kindCount.renewal + " renewal-type, " + live.kindCount.other + " other deal types). " +
+        "Renewal book: " + live.book.kept + " deals kept" +
+        (live.book.noSubStart ? ", " + live.book.noSubStart + " dropped with no " + fieldInfo.subStart.label : "") +
+        (live.book.afterCutoff ? ", " + live.book.afterCutoff + " dropped as on or after " + fmtDate(RENEWAL_SUB_START_BEFORE) : "") + "." +
+        (live.renewalNoQuarter ? " " + live.renewalNoQuarter + " of the book has no stage date inside the FY, so it shows in the full-year figures but in no quarter." : "") +
+        (live.undated ? " " + live.undated + " deals in all have no date in the FY on the field their stage uses." : ""));
 
     parts.push("Fields in use — amount: " + fieldInfo.amount.label + " (" + fieldInfo.amount.api + "), deal type: " +
         fieldInfo.dealType.label + " (" + fieldInfo.dealType.api + "), deal year: " + fieldInfo.year.label +
         ", dates: " + fieldInfo.actualOrderDate.label + " / " + fieldInfo.closingDate.label + " / " +
         fieldInfo.expectedOrderDate.label + ", region: " + fieldInfo.region.label +
-        ", currency: " + fieldInfo.currency.label + (fieldInfo.currency.found ? "" : " (not found - falling back to Billing Region)") + ".");
+        ", currency: " + fieldInfo.currency.label + (fieldInfo.currency.found ? "" : " (not found - falling back to Billing Region)") +
+        ", subscription start: " + fieldInfo.subStart.label +
+        (fieldInfo.subStart.found ? " (on " + fieldInfo.subStart.module + ")" : " (not found)") + ".");
 
     return parts.map(escapeHtml).join("<br><br>");
 }
@@ -1735,12 +1824,17 @@ function openDrill(key) {
     if (!rows.length) {
         html += '<div class="empty">No deals match this figure.</div>';
     } else {
-        html += '<div class="scroll"><table><thead><tr><th>Account</th><th>Deal</th><th>Stage</th>' +
-                '<th>Date</th><th>Quarter</th><th>Owner</th><th>Amount</th></tr></thead><tbody>';
+        var showBook = rows.some(function(r) { return r.kind === "renewal"; });
+
+        html += '<div class="scroll"><table><thead><tr><th>Account</th><th>Deal</th>' +
+                (showBook ? '<th>Deal type</th><th>Sub start</th>' : '') +
+                '<th>Stage</th><th>Date</th><th>Quarter</th><th>Owner</th><th>Amount</th></tr></thead><tbody>';
         rows.forEach(function(r) {
             html += '<tr>' +
                 '<td>' + escapeHtml(r.accName) + accountTag(r) + '</td>' +
                 '<td>' + escapeHtml(r.dealName) + '</td>' +
+                (showBook ? '<td>' + escapeHtml(r.dealType || "\u2014") + '</td>' +
+                            '<td>' + escapeHtml(fmtDate(r.subStart)) + '</td>' : '') +
                 '<td>' + escapeHtml(r.stage) + '</td>' +
                 '<td>' + escapeHtml(fmtDate(r.dateValue)) + '</td>' +
                 '<td>' + (r.quarter || '<span class="mutedc">outside FY</span>') + '</td>' +
