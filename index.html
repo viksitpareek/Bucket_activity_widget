@@ -91,6 +91,8 @@ select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); o
 
 /* figure blocks inside panels */
 .figs { display: flex; gap: 32px; flex-wrap: wrap; }
+/* five figures: three across in a half panel, all five across in a full-width one */
+.figs.five { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 18px 24px; }
 .figs > div > span { display: block; color: var(--muted); font-size: 12.5px; }
 .big { font-size: 32px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .figs .big span, .term .fig span { font-size: inherit; font-weight: inherit; letter-spacing: inherit; color: inherit; display: inline; }
@@ -1496,7 +1498,7 @@ function equationPanel(m) {
         : (m.useNew ? accLabel(bucketAccounts(m.newWon)) + " won" : "hidden by the deal type filter");
 
     var lostFoot = m.useRenewal
-        ? accLabel(bucketAccounts(m.renLost)) + " did not renew"
+        ? accLabel(bucketAccounts(m.renLost)) + " did not renew, out of a " + lakh(m.renewalBase) + " book"
         : "hidden by the deal type filter";
 
     var netFoot;
@@ -1577,7 +1579,8 @@ function renewalPanel(m, panelClass) {
     return '' +
     '<section class="panel ' + panelClass + '">' +
       '<h2>Renewals <small>against the book due this year</small></h2>' +
-      '<div class="figs">' +
+      '<div class="figs five">' +
+        '<div><span>Book due this year</span><div class="big">' + click("renBook", lakh(base)) + '</div></div>' +
         '<div><span>Retained</span><div class="big gainc">' + click("renWon", lakh(m.renWon.amount)) + '</div></div>' +
         '<div><span>Lost</span><div class="big lossc">' + click("renLost", lakh(m.renLost.amount)) + '</div></div>' +
         '<div><span>Still open</span><div class="big openc">' + click("renOpen", lakh(m.renOpen.amount)) + '</div></div>' +
@@ -1593,7 +1596,7 @@ function renewalPanel(m, panelClass) {
         '<span><i class="fill-loss"></i>Lost <b>' + lakh(m.renLost.amount) + '</b></span>' +
         '<span><i class="fill-open"></i>Open <b>' + lakh(m.renOpen.amount) + '</b></span>' +
       '</div>' +
-      '<p class="hint">Book due this year ' + lakh(base) + ' across ' +
+      '<p class="hint">The book is ' +
         accLabel(bucketAccounts(m.renWon) + bucketAccounts(m.renLost) + bucketAccounts(m.renOpen)) +
         '. Retention is what was kept out of everything decided so far (' + lakh(m.renewalDecided) + '); ' +
         lakh(m.renOpen.amount) + ' has not come up for renewal yet. The book is Deal Year ' + FY_FILTER + ', Deal Type ' +
@@ -1780,6 +1783,9 @@ function drillSource(key, m) {
 
     if (key === "newWon") return { title: "New business won", rows: m.newWon.rows };
     if (key === "newOpen") return { title: "New business still in pipeline", rows: m.newOpen.rows };
+    if (key === "renBook") {
+        return { title: "The renewal book due this year", rows: m.renWon.rows.concat(m.renLost.rows, m.renOpen.rows) };
+    }
     if (key === "renWon") return { title: "Renewals retained", rows: m.renWon.rows };
     if (key === "renLost") return { title: "Revenue lost at renewal", rows: m.renLost.rows };
     if (key === "renOpen") return { title: "Renewals still open", rows: m.renOpen.rows };
