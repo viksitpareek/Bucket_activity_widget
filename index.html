@@ -293,7 +293,13 @@ var EXCLUDED_DEAL_NAME_WORDS = ["test", "trigya"];
 var CLOSED_WON_STAGES = ["Email Confirmation", "PI Sent - Order Received", "Payment Received",
                          "Part Payment Received", "Short Payment", "Closed Won"];
 var CLOSED_LOST_STAGES = ["Closed Lost", "Approval for Close Lost"];
+/*
+ * Stages left out of the new-business side. They are NOT left out of the renewal book:
+ * "Renewal Notice Sent" / "to be Sent" is where an open renewal sits before anyone works it,
+ * so dropping them would empty the "still open" figure.
+ */
 var REMOVED_STAGES = ["Renewal Notice Sent", "Renewal Notice to be Sent"];
+var REMOVED_STAGES_APPLY_TO = { "new": true, renewal: false };
 
 /* The four account owners the new-business targets are built around */
 var ALLOWED_ACCOUNT_OWNERS = ["Anurag Mishra", "Tejal Pandya", "Ashish Kumar", "GIST HQ"];
@@ -1152,6 +1158,7 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
     var records = [];
     var kindCount = { "new": 0, renewal: 0, other: 0 };
     var undated = 0;
+    var removedByStage = 0;
     var book = { kept: 0, noSubStart: 0, afterCutoff: 0 };
 
     deals.forEach(function(d) {
@@ -1164,11 +1171,11 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
         }
 
         if (dealFiscalYear(d) !== FY_FILTER) return;
-        if (isRemovedStage(d.Stage)) return;
 
         var kind = fieldInfo.dealType.found ? dealTypeKindOf(d[fieldInfo.dealType.api]) : "new";
         kindCount[kind] = (kindCount[kind] || 0) + 1;
         if (kind === "other") return;
+        if (isRemovedStage(d.Stage) && REMOVED_STAGES_APPLY_TO[kind]) { removedByStage++; return; }
 
         var accId = ddLookupId(d.Account_Name);
         var account = accountsById[accId] || null;
@@ -1209,7 +1216,7 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
             stage: String(d.Stage || "").trim() || "Unknown",
             won: isClosedWonStage(d.Stage),
             lost: isClosedLostStage(d.Stage),
-            open: isOpenStage(d.Stage),
+            open: !isClosedWonStage(d.Stage) && !isClosedLostStage(d.Stage),
             quarter: quarter,
             dateValue: sd.value || "",
             dateName: sd.name,
@@ -1240,6 +1247,7 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
         kindCount: kindCount,
         undated: undated,
         book: book,
+        removedByStage: removedByStage,
         renewalNoQuarter: records.filter(function(r) { return r.kind === "renewal" && !r.quarter; }).length
     };
 }
@@ -1315,7 +1323,11 @@ function computeMetrics(live) {
             intl: { won: 0, lost: 0 }
         },
         teamWon: SALES_TEAM_TARGETS.map(function() { return blankBucket(); }),
-        teamUnassigned: blankBucket()
+        teamUnassigned: blankBucket(),
+        renByRegion: {
+            india: { won: blankBucket(), lost: blankBucket(), open: blankBucket() },
+            intl: { won: blankBucket(), lost: blankBucket(), open: blankBucket() }
+        }
     };
 
     QUARTERS.forEach(function(q) { m.byQuarter[q] = { won: 0, lost: 0 }; });
@@ -1351,12 +1363,15 @@ function computeMetrics(live) {
         }
 
         /* renewal */
-        if (rec.won && renewalInPeriod) addRecord(m.renWon, rec);
+        var side = rec.intl ? m.renByRegion.intl : m.renByRegion.india;
+
+        if (rec.won && renewalInPeriod) { addRecord(m.renWon, rec); addRecord(side.won, rec); }
         if (rec.lost && renewalInPeriod) {
             addRecord(m.renLost, rec);
+            addRecord(side.lost, rec);
             (rec.intl ? m.region.intl : m.region.india).lost += rec.amount;
         }
-        if (rec.open && renewalInPeriod) addRecord(m.renOpen, rec);
+        if (rec.open && renewalInPeriod) { addRecord(m.renOpen, rec); addRecord(side.open, rec); }
     });
 
     /* the deal type filter decides which half of the equation is live */
@@ -1596,6 +1611,7 @@ function renewalPanel(m, panelClass) {
         '<span><i class="fill-loss"></i>Lost <b>' + lakh(m.renLost.amount) + '</b></span>' +
         '<span><i class="fill-open"></i>Open <b>' + lakh(m.renOpen.amount) + '</b></span>' +
       '</div>' +
+      bookRegionTable(m) +
       '<p class="hint">The book is ' +
         accLabel(bucketAccounts(m.renWon) + bucketAccounts(m.renLost) + bucketAccounts(m.renOpen)) +
         '. Retention is what was kept out of everything decided so far (' + lakh(m.renewalDecided) + '); ' +
@@ -1603,6 +1619,36 @@ function renewalPanel(m, panelClass) {
         escapeHtml(RENEWAL_DEAL_TYPE_VALUES.join(" / ")) + ', ' + escapeHtml(fieldInfo.subStart.label) + ' before ' +
         fmtDate(RENEWAL_SUB_START_BEFORE) + '.</p>' +
     '</section>';
+}
+
+
+/* India / International split of the book - the same four figures as the Zoho cards */
+function bookRegionTable(m) {
+
+    var rows = [
+        { key: "india", name: "India", side: m.renByRegion.india },
+        { key: "intl", name: "International", side: m.renByRegion.intl }
+    ];
+
+    var body = rows.map(function(r) {
+        var base = r.side.won.amount + r.side.lost.amount + r.side.open.amount;
+        var deals = r.side.won.count + r.side.lost.count + r.side.open.count;
+        return '<tr><th scope="row">' + r.name + '</th>' +
+            '<td>' + click("ren:all:" + r.key, lakh(base)) + ' <span class="mutedc">(' + deals + ')</span></td>' +
+            '<td class="gainc">' + click("ren:won:" + r.key, lakh(r.side.won.amount)) + ' <span class="mutedc">(' + r.side.won.count + ')</span></td>' +
+            '<td class="lossc">' + click("ren:lost:" + r.key, lakh(r.side.lost.amount)) + ' <span class="mutedc">(' + r.side.lost.count + ')</span></td>' +
+            '<td class="openc">' + click("ren:open:" + r.key, lakh(r.side.open.amount)) + ' <span class="mutedc">(' + r.side.open.count + ')</span></td></tr>';
+    }).join("");
+
+    return '<div class="scroll" style="margin-top:16px"><table>' +
+        '<thead><tr><th>&nbsp;</th><th>Book</th><th>Retained</th><th>Lost</th><th>Open</th></tr></thead>' +
+        '<tbody>' + body + '</tbody>' +
+        '<tfoot><tr><th scope="row">Total</th>' +
+          '<td>' + lakh(m.renewalBase) + ' <span class="mutedc">(' + (m.renWon.count + m.renLost.count + m.renOpen.count) + ')</span></td>' +
+          '<td class="gainc">' + lakh(m.renWon.amount) + ' <span class="mutedc">(' + m.renWon.count + ')</span></td>' +
+          '<td class="lossc">' + lakh(m.renLost.amount) + ' <span class="mutedc">(' + m.renLost.count + ')</span></td>' +
+          '<td class="openc">' + lakh(m.renOpen.amount) + ' <span class="mutedc">(' + m.renOpen.count + ')</span></td></tr></tfoot>' +
+      '</table></div>';
 }
 
 
@@ -1748,6 +1794,8 @@ function footNote(live, m) {
     parts.push("Read live from CRM: " + live.dealCount + " deals, " + live.accountCount + " accounts, " +
         live.fyDealCount + " with Deal Year " + FY_FILTER + " (" + live.kindCount["new"] + " new, " +
         live.kindCount.renewal + " renewal-type, " + live.kindCount.other + " other deal types). " +
+        "Renewal notice stages are kept in the renewal book" +
+        (live.removedByStage ? " (" + live.removedByStage + " new-business deals in them were left out)" : "") + ". " +
         "Renewal book: " + live.book.kept + " deals kept" +
         (live.book.noSubStart ? ", " + live.book.noSubStart + " dropped with no " + fieldInfo.subStart.label : "") +
         (live.book.afterCutoff ? ", " + live.book.afterCutoff + " dropped as on or after " + fmtDate(RENEWAL_SUB_START_BEFORE) : "") + "." +
@@ -1783,6 +1831,17 @@ function drillSource(key, m) {
 
     if (key === "newWon") return { title: "New business won", rows: m.newWon.rows };
     if (key === "newOpen") return { title: "New business still in pipeline", rows: m.newOpen.rows };
+    var region = String(key || "").match(/^ren:(all|won|lost|open):(india|intl)$/);
+    if (region) {
+        var side = m.renByRegion[region[2]];
+        var label = region[2] === "intl" ? "International" : "India";
+        if (region[1] === "all") {
+            return { title: label + " renewal book", rows: side.won.rows.concat(side.lost.rows, side.open.rows) };
+        }
+        var names = { won: "retained", lost: "lost", open: "still open" };
+        return { title: label + " renewals " + names[region[1]], rows: side[region[1]].rows };
+    }
+
     if (key === "renBook") {
         return { title: "The renewal book due this year", rows: m.renWon.rows.concat(m.renLost.rows, m.renOpen.rows) };
     }
