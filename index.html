@@ -263,6 +263,17 @@ var AMOUNT_UNIT = "auto";       // "rupees", "lakh" or "auto"
 var INTERNATIONAL_REGION_VALUES = ["international"];
 var USD_TO_INR = 95;            // update when the rate changes
 
+/*
+ * The conversion is decided by the account's Currency field, not by the region:
+ * an international account billed in INR is already in rupees and is left alone;
+ * only USD amounts are multiplied by USD_TO_INR. When the account has no currency
+ * value the deal's own currency is tried, and if that is blank too the old rule
+ * applies (Billing Region = International means USD).
+ */
+var ACCOUNT_CURRENCY_FIELD = "";   // "" = auto-detect the account "Currency" field
+var USD_CURRENCY_VALUES = ["usd", "us dollar", "us dollars", "$", "usd - us dollar", "dollar"];
+var INR_CURRENCY_VALUES = ["inr", "indian rupee", "indian rupees", "rs", "rs.", "\u20b9", "inr - indian rupee", "rupee"];
+
 var EXCLUDED_DEAL_NAME_WORDS = ["test", "trigya"];
 
 /* Stages */
@@ -448,6 +459,21 @@ function ownerScopeLabel() {
 function isAllowedOwnerName(name) {
     var lower = String(name || "").trim().toLowerCase();
     return ALLOWED_ACCOUNT_OWNERS.some(function(n) { return n.trim().toLowerCase() === lower; });
+}
+
+
+/* true = USD, false = INR (or any other non-USD currency), null = nothing stated */
+function currencyIsUsd(value) {
+
+    var text = String(value || "").trim().toLowerCase();
+    if (!text) return null;
+
+    if (USD_CURRENCY_VALUES.indexOf(text) !== -1) return true;
+    if (INR_CURRENCY_VALUES.indexOf(text) !== -1) return false;
+    if (/\busd\b|\bus ?dollar/.test(text)) return true;
+    if (/\binr\b|rupee/.test(text)) return false;
+
+    return false;   // a stated currency that is neither is taken as already converted
 }
 
 
@@ -1013,6 +1039,19 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
               function(o) { return /\bregion\b/.test(optionText(o)); }
           ], function(api) { return countNonEmpty(accounts, api); }) || describeField("Billing_Region", accountOptions, false));
 
+    fieldInfo.currency = ACCOUNT_CURRENCY_FIELD
+        ? describeField(ACCOUNT_CURRENCY_FIELD, accountOptions, true)
+        : (pickByTiers(accountOptions, [
+              function(o) { return o.api === "Currency"; },
+              function(o) { return /^currency$/.test(String(o.label || "").trim().toLowerCase()); },
+              function(o) { return /\bcurrency\b/.test(optionText(o)) && !/exchange|rate|symbol|code id/.test(optionText(o)); }
+          ], function(api) { return countNonEmpty(accounts, api); }) || describeField("Currency", accountOptions, false));
+
+    fieldInfo.dealCurrency = pickByTiers(dealOptions, [
+        function(o) { return o.api === "Currency"; },
+        function(o) { return /\bcurrency\b/.test(optionText(o)) && !/exchange|rate|symbol/.test(optionText(o)); }
+    ], function(api) { return countNonEmpty(deals, api); }) || { api: "Currency", label: "Currency", found: false };
+
     amountUnitInUse = decideAmountUnit(scope, fieldInfo.amount.api);
 
     /* ---- accounts ---- */
@@ -1035,10 +1074,14 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
             ownerName: ownerName,
             gistNames: fieldValueList(a[fieldInfo.gist.api]),
             region: region,
+            currency: fieldValueText(a[fieldInfo.currency.api]),
             isInternational: INTERNATIONAL_REGION_VALUES.some(function(v) {
                 return region.trim().toLowerCase() === String(v).trim().toLowerCase();
             })
         };
+
+        /* true = amounts on this account are in USD, false = already in rupees, null = not stated */
+        account.currencyIsUsd = currencyIsUsd(account.currency);
 
         account.teamIndex = assignTeam(account);
         accountsById[account.id] = account;
@@ -1074,8 +1117,18 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
         var account = accountsById[accId] || null;
         var intl = !!(account && account.isInternational);
 
+        /* account currency decides the conversion; then the deal's own currency; then the region */
+        var usd = account ? account.currencyIsUsd : null;
+        var currencyText = account ? account.currency : "";
+        if (usd === null) {
+            var dealCurrency = fieldValueText(d[fieldInfo.dealCurrency.api]);
+            var fromDeal = currencyIsUsd(dealCurrency);
+            if (fromDeal !== null) { usd = fromDeal; currencyText = dealCurrency; }
+        }
+        if (usd === null) usd = intl;
+
         var raw = parseNumber(d[fieldInfo.amount.api]);
-        var lakh = (amountUnitInUse === "lakh" ? raw : raw / 100000) * (intl ? USD_TO_INR : 1);
+        var lakh = (amountUnitInUse === "lakh" ? raw : raw / 100000) * (usd ? USD_TO_INR : 1);
 
         var sd = stageDate(d);
         var quarter = fyQuarterOf(sd.value);
@@ -1094,6 +1147,8 @@ function buildLiveData(dealMeta, accountMeta, deals, accounts) {
             dateName: sd.name,
             amount: lakh,
             intl: intl,
+            usd: !!usd,
+            currency: currencyText,
             accId: accId,
             accName: account ? account.name : ddLookupName(d.Account_Name, "(No account)"),
             ownerId: ownerId,
@@ -1537,7 +1592,8 @@ function regionPanel(m, panelClass) {
           '<td class="lossc">' + lakh(m.lostAmount) + '</td>' +
           '<td>' + signedLakh(m.net) + '</td></tr></tfoot>' +
       '</table></div>' +
-      '<p class="hint">International amounts are converted at ' + USD_TO_INR + ' per USD.</p>' +
+      '<p class="hint">Only accounts whose Currency is USD are converted, at ' + USD_TO_INR +
+        ' per USD. An international account billed in INR is counted in rupees as it stands.</p>' +
     '</section>';
 }
 
@@ -1600,7 +1656,8 @@ function footNote(live, m) {
     parts.push("New business won counts Closed Won deals of Deal Type New with an Actual Order Date in the period. " +
         "Revenue lost at renewal counts Renewal deals at Closed Lost, by Closing Date. A renewal that renews is not counted " +
         "as growth, because it holds revenue where it already was. Amounts come from " + fieldInfo.amount.label +
-        "; International accounts are converted at " + USD_TO_INR + " per USD.");
+        ". An account whose Currency is USD is converted at " + USD_TO_INR +
+        " per USD; an account billed in INR is counted as rupees whatever its Billing Region.");
 
     parts.push("Read live from CRM: " + live.dealCount + " deals, " + live.accountCount + " accounts, " +
         live.fyDealCount + " with Deal Year " + FY_FILTER + " (" + live.kindCount["new"] + " new, " +
@@ -1610,7 +1667,8 @@ function footNote(live, m) {
     parts.push("Fields in use — amount: " + fieldInfo.amount.label + " (" + fieldInfo.amount.api + "), deal type: " +
         fieldInfo.dealType.label + " (" + fieldInfo.dealType.api + "), deal year: " + fieldInfo.year.label +
         ", dates: " + fieldInfo.actualOrderDate.label + " / " + fieldInfo.closingDate.label + " / " +
-        fieldInfo.expectedOrderDate.label + ", region: " + fieldInfo.region.label + ".");
+        fieldInfo.expectedOrderDate.label + ", region: " + fieldInfo.region.label +
+        ", currency: " + fieldInfo.currency.label + (fieldInfo.currency.found ? "" : " (not found - falling back to Billing Region)") + ".");
 
     return parts.map(escapeHtml).join("<br><br>");
 }
@@ -1681,7 +1739,7 @@ function openDrill(key) {
                 '<th>Date</th><th>Quarter</th><th>Owner</th><th>Amount</th></tr></thead><tbody>';
         rows.forEach(function(r) {
             html += '<tr>' +
-                '<td>' + escapeHtml(r.accName) + (r.intl ? ' <span class="mutedc">(intl)</span>' : '') + '</td>' +
+                '<td>' + escapeHtml(r.accName) + accountTag(r) + '</td>' +
                 '<td>' + escapeHtml(r.dealName) + '</td>' +
                 '<td>' + escapeHtml(r.stage) + '</td>' +
                 '<td>' + escapeHtml(fmtDate(r.dateValue)) + '</td>' +
@@ -1700,6 +1758,17 @@ function openDrill(key) {
     var box = document.getElementById("drillBox");
     modal.classList.add("open");
     positionModal(modal, box);
+}
+
+
+/* "(intl, USD x 95)" / "(intl, INR)" next to the account name in the popup */
+function accountTag(rec) {
+    var parts = [];
+    if (rec.intl) parts.push("intl");
+    if (rec.usd) parts.push("USD \u00d7 " + USD_TO_INR);
+    else if (rec.intl) parts.push("INR, not converted");
+    if (!parts.length) return "";
+    return ' <span class="mutedc">(' + escapeHtml(parts.join(", ")) + ')</span>';
 }
 
 
